@@ -51,8 +51,7 @@ public:
 #ifdef QT_WIDGETS_LIB
     AGLTexture(const QImage &img)
     {
-        QImage im=img.rgbSwapped();
-        createBitmap(im.bits(),im.width(),im.height(),im.depth()<<16);
+        createBitmap(img.bits(),img.width(),img.height(),img.depth()<<16);
     }
 #endif
     AGLTexture(const void *buff, int w, int h, uint32 format);

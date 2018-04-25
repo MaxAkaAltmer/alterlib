@@ -296,6 +296,7 @@ void AGLTexture::drawParticle(real32 x, real32 y, real32 z, real32 zoom, AColor 
 
 bool AGLTexture::hasAlpha(uint32 format)
 {
+   if(format == 0x4f) return true;
    if(((format>>16)&0xff)==32)return true;
    if(format&0xf000)return true;
    return false;
@@ -303,6 +304,10 @@ bool AGLTexture::hasAlpha(uint32 format)
 
 int AGLTexture::pixelSize(uint32 format)
 {
+    if((format&0xf) == 0xf)
+    { //float pixel format
+        return (format>>4)*4;
+    }
     int rv=(format>>16)&0xff;
     if(!rv)rv=(format&0xf)+(((format>>4)&0xf))
             +(((format>>8)&0xf))+(((format>>12)&0xf));
@@ -405,6 +410,11 @@ void AGLTexture::setBitmap(const void *buff, int w, int h, uint32 format)
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0,
                      GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, buff);
     }
+    else if(format == 0x4f)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0,
+                     GL_RGBA, GL_FLOAT, buff);
+    }
 }
 
 void AGLTexture::Update(int x, int y, const void *buff, int w, int h, uint32 format)
@@ -448,5 +458,11 @@ void AGLTexture::Update(int x, int y, const void *buff, int w, int h, uint32 for
         glTexSubImage2D(GL_TEXTURE_2D, 0, x, y,
                         w, h,
                         GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, buff);
+    }
+    else if(format == 0x4f)
+    {
+        glTexSubImage2D(GL_TEXTURE_2D, 0, x, y,
+                        w, h,
+                        GL_RGBA, GL_FLOAT, buff);
     }
 }

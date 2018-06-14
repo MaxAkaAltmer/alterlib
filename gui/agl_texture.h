@@ -54,12 +54,13 @@ public:
         createBitmap(img.bits(),img.width(),img.height(),img.depth()<<16);
     }
 #endif
-    AGLTexture(const void *buff, int w, int h, uint32 format);
-    AGLTexture(int w, int h, uint32 format);
+    AGLTexture(const void *buff, int w, int h, uint32 format, int filter = 0);
+    AGLTexture(int w, int h, uint32 format, int filter = 0);
     AGLTexture(const AGLTexture &val);
     ~AGLTexture();
 
-    void load(const void *buff, int w, int h, uint32 format);
+    void resize(int w, int h, uint32 format, int filter = 0);
+    void load(const void *buff, int w, int h, uint32 format, int filter = 0);
 
     void free();
     bool isValid(){return hand;}
@@ -157,7 +158,7 @@ private:
 
     void drawVertexes(GLfloat *vertexes, GLfloat *coords, int count, bool strip=true) const;
 
-    void createBitmap(const void *buff, int w, int h, uint32 format);
+    void createBitmap(const void *buff, int w, int h, uint32 format, int filter = 0);
     void setBitmap(const void *buff, int w, int h, uint32 format);
 
 };

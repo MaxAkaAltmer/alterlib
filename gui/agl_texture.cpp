@@ -27,19 +27,19 @@ SOFTWARE.
 #include "agl_texture.h"
 #include <memory.h>
 
-AGLTexture::AGLTexture(const void *buff, int w, int h, uint32 format)
+AGLTexture::AGLTexture(const void *buff, int w, int h, uint32 format, int filter)
 {
     //создаем текстуру
-    createBitmap(buff,w,h,format);
+    createBitmap(buff,w,h,format,filter);
 }
 
-void AGLTexture::load(const void *buff, int w, int h, uint32 format)
+void AGLTexture::load(const void *buff, int w, int h, uint32 format, int filter)
 {
     free();
-    createBitmap(buff,w,h,format);
+    createBitmap(buff,w,h,format,filter);
 }
 
-void AGLTexture::createBitmap(const void *buff, int w, int h, uint32 format)
+void AGLTexture::createBitmap(const void *buff, int w, int h, uint32 format, int filter)
 {
     hand = new Internal;
     hand->refcount=1;
@@ -85,8 +85,16 @@ void AGLTexture::createBitmap(const void *buff, int w, int h, uint32 format)
     }
 
     //TODO: контроль поддерживаемых функций
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+    if(filter<0)
+    {
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+    }
+    else
+    {
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+    }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 }
@@ -314,37 +322,61 @@ int AGLTexture::pixelSize(uint32 format)
     return (rv+7)>>3;
 }
 
-AGLTexture::AGLTexture(int w, int h, uint32 format)
+void AGLTexture::resize(int w, int h, uint32 format, int filter)
 {
-    hand = new Internal;
-    hand->refcount=1;
+    if(hand && (hand->refcount>1 || w>hand->alwidth || h>hand->alheight || format != hand->pixelFormat)) free();
+    if(hand)
+    {
+        hand->width = w;
+        hand->height = h;
+    }
+    else
+    {
+        hand = new Internal;
+        hand->refcount=1;
 
-    //создаем текстуру
-    glEnable(GL_TEXTURE_2D);
-    glGenTextures(1,&hand->tex);
-    glBindTexture(GL_TEXTURE_2D, hand->tex);
+        //создаем текстуру
+        glEnable(GL_TEXTURE_2D);
+        glGenTextures(1,&hand->tex);
+        glBindTexture(GL_TEXTURE_2D, hand->tex);
 
-    //создаем растр
-    //TODO: контроль размера текстуры и ресайзинг
-    hand->pixelFormat = format;
-    hand->width=w;
-    hand->height=h;
-    int tmp_w=hand->alwidth=1<<__bsr32(hand->width-1);;
-    int tmp_h=hand->alheight=1<<__bsr32(hand->height-1);;
-    uint8 *buffer=new uint8[tmp_h*tmp_w*pixelSize(format)];
+        //создаем растр
+        //TODO: контроль размера текстуры и ресайзинг
+        hand->pixelFormat = format;
+        hand->width=w;
+        hand->height=h;
+        int tmp_w=hand->alwidth=1<<__bsr32(hand->width-1);;
+        int tmp_h=hand->alheight=1<<__bsr32(hand->height-1);;
+        uint8 *buffer=new uint8[tmp_h*tmp_w*pixelSize(format)];
 
-    memset(buffer,0,tmp_h*tmp_w*pixelSize(format));
+        memset(buffer,0,tmp_h*tmp_w*pixelSize(format));
 
-    //заполняем и настраиваем текстуру
-    setBitmap(buffer,tmp_w,tmp_h,format);
+        //заполняем и настраиваем текстуру
+        setBitmap(buffer,tmp_w,tmp_h,format);
 
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        if(filter<0)
+        {
+            glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+        }
+        else
+        {
+            glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+        }
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    //чистим память
-    delete []buffer;
+        //чистим память
+        delete []buffer;
+    }
+}
+
+AGLTexture::AGLTexture(int w, int h, uint32 format, int filter)
+{
+    hand = NULL;
+
+    resize(w,h,format,filter);
 }
 
 AGLTexture::AGLTexture(const AGLTexture &val)

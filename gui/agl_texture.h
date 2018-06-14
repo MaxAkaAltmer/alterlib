@@ -31,13 +31,14 @@ SOFTWARE.
 #ifdef ANDROID_NDK
     #include <EGL/egl.h>
     #include <GLES/gl.h>
+#elif QT_OPENGL_LIB
+    #include <QtOpenGL>
+    #include <GL/glu.h>
 #else
     #include <GL/glu.h>
     #include <GL/glext.h>
 #endif
-#ifdef QT_OPENGL_LIB
-    #include <QtOpenGL>
-#endif
+
 #include "../math_int.h"
 #include "../math_vec.h"
 #include "../acolor.h"

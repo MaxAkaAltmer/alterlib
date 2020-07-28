@@ -44,7 +44,7 @@ __inline uint32 aHash(uint64 key){ return (key>>32)^key; }
 __inline uint32 aHash(const char *key)
 {
     if(!key)return 0;
-    int i;
+    int i = 0;
     uint32 rv=0;
     while(key[i])
     {

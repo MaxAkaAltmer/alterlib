@@ -274,6 +274,7 @@ void AGLTexture::drawRect(real32 x, real32 y, real32 w, real32 h) const
 
     glColor4f(1.0, 1.0, 1.0, 1.0);
     drawVertexes(vertexes,coords,4);
+    glFlush();
 }
 
 void AGLTexture::drawParticle(real32 x, real32 y, real32 z, real32 zoom, AColor col) const

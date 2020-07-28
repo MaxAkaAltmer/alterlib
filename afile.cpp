@@ -24,9 +24,13 @@ SOFTWARE.
 
 *****************************************************************************/
 
-#include "../glob/afile.h"
+#include "afile.h"
 
-#include <dirent.h>
+#if defined(_MSC_VER)
+    #include "external/dirent.h"
+#else
+    #include <dirent.h>
+#endif
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -34,7 +38,22 @@ SOFTWARE.
     #include <io.h>
 #endif
 #include <fcntl.h>
-#include <unistd.h>
+
+#if defined(_MSC_VER)
+    /* Values for the second argument to access.
+       These may be OR'd together.  */
+    #define R_OK    4       /* Test for read permission.  */
+    #define W_OK    2       /* Test for write permission.  */
+    #define X_OK    R_OK    /* execute permission - unsupported in Windows,
+                               use R_OK instead. */
+    #define F_OK    0       /* Test for existence.  */
+
+    #define wstat _wstat
+    #define lseek64 _lseeki64
+    #define stat _stat
+    #define ftruncate64 _chsize_s
+#endif
+
 
 bool aDirIsWriteble(AString path)
 {

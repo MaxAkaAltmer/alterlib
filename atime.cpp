@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2018 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2020 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -27,28 +27,7 @@ SOFTWARE.
 #include "atime.h"
 
 #include <time.h>
-#if defined(_MSC_VER)
-#include <windows.h>
-static const unsigned __int64 epoch = ((unsigned __int64) 116444736000000000ULL);
-int gettimeofday(struct timeval * tp, struct timezone * tzp)
-{
-    FILETIME    file_time;
-    SYSTEMTIME  system_time;
-    ULARGE_INTEGER ularge;
-
-    GetSystemTime(&system_time);
-    SystemTimeToFileTime(&system_time, &file_time);
-    ularge.LowPart = file_time.dwLowDateTime;
-    ularge.HighPart = file_time.dwHighDateTime;
-
-    tp->tv_sec = (long) ((ularge.QuadPart - epoch) / 10000000L);
-    tp->tv_usec = (long) (system_time.wMilliseconds * 1000);
-
-    return 0;
-}
-#else
-#include <sys/time.h>
-#endif
+#include <chrono>
 
 ATime ATime::current()
 {
@@ -57,13 +36,7 @@ ATime ATime::current()
 
 uint64 ATime::uStamp()
 {
-    struct timeval currentTime;
-    gettimeofday(&currentTime, NULL);
-
-    if(sizeof(currentTime.tv_sec)==8)
-        return (uint64)currentTime.tv_sec*(uint64)1000000+currentTime.tv_usec;
-
-    return ((uint32)currentTime.tv_sec)*(uint64)1000000+currentTime.tv_usec;
+    return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
 }
 
 void ATime::fragmentation(

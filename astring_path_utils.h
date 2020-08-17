@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2018 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2020 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -48,6 +48,8 @@ public:
     AString getNameNoExt();
     AString getDirectory();
     AString getPath(){return _path;}
+
+    AString createRelativePath(AString to, bool this_is_dir = true);
 
 private:
 

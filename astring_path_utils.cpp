@@ -81,7 +81,7 @@ void AStringPathParcer::setPath(const AString &path)
     _path=AString::join(rez,sep);
 }
 
-ATArray<AString> AStringPathParcer::split(const AString &path)
+ATArray<AString> AStringPathParcer::split(const AString &path, bool scip_empty)
 {
     ATArray<AString> rv;
     AString tmp;
@@ -89,7 +89,8 @@ ATArray<AString> AStringPathParcer::split(const AString &path)
     {
         if(path[i]=='/' || path[i]=='\\')
         {
-            rv.append(tmp);
+            if(!scip_empty || !tmp.isEmpty())
+                rv.append(tmp);
             tmp.clear();
         }
         else
@@ -152,9 +153,12 @@ AString AStringPathParcer::getDirectory()
 AString AStringPathParcer::createRelativePath(AString to, bool this_is_dir)
 {
     AStringPathParcer from_path(to);
-    ATArray<AString> curr = split(_path);
-    ATArray<AString> dest = split(to);
+    ATArray<AString> curr = split(_path,true);
+    ATArray<AString> dest = split(to,true);
     int ind=0;
+
+    if(!curr.size())
+        return to;
 
     if(!this_is_dir)
         curr.pop();
@@ -164,9 +168,13 @@ AString AStringPathParcer::createRelativePath(AString to, bool this_is_dir)
         if(curr[ind]!=dest[ind])
             break;
     }
+
+    if(ind==0)
+        return to;
+
     AString rv = ".";
     rv.append(_defSep);
-    if(ind != curr.size())
+    if(ind < curr.size())
     {
         rv.clear();
         for(int i = ind; i<curr.size(); i++)

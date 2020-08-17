@@ -40,7 +40,7 @@ public:
     void setDefSep(char sep){_defSep=sep;}
     void setPath(const AString &path);
 
-    static ATArray<AString> split(const AString &path);
+    static ATArray<AString> split(const AString &path, bool scip_empty = false);
 
     AString getExtension();
     AString getName();

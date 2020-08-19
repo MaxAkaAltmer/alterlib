@@ -50,6 +50,7 @@ public:
     AString getPath(){return _path;}
 
     AString createRelativePath(AString to, bool this_is_dir = true);
+    AString createAbsolutePath(AString to, bool this_is_dir = true);
 
 private:
 

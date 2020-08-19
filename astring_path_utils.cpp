@@ -150,9 +150,39 @@ AString AStringPathParcer::getDirectory()
     return AString();
 }
 
+AString AStringPathParcer::createAbsolutePath(AString to, bool this_is_dir)
+{
+    ATArray<AString> curr = split(_path,true);
+    ATArray<AString> dest = split(to,true);
+    int ind=0;
+
+    if(!dest.size())
+        return "";
+
+    if(!this_is_dir)
+        curr.pop();
+
+    curr.append(dest);
+
+    for(int i=0; i<curr.size(); i++)
+    {
+        if(curr[i]==".")
+        {
+            curr.cut(i);
+            i++;
+        }
+        else if(curr[i]=="..")
+        {
+            if(!i) return "";
+            curr.cut(i-1,2);
+            i-=2;
+        }
+    }
+    return AString::join(curr,_defSep);
+}
+
 AString AStringPathParcer::createRelativePath(AString to, bool this_is_dir)
 {
-    AStringPathParcer from_path(to);
     ATArray<AString> curr = split(_path,true);
     ATArray<AString> dest = split(to,true);
     int ind=0;

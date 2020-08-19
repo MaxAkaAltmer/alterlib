@@ -156,8 +156,8 @@ AString AStringPathParcer::createAbsolutePath(AString to, bool this_is_dir)
     ATArray<AString> dest = split(to,true);
     int ind=0;
 
-    if(!dest.size())
-        return "";
+    if(to[0]!='.')
+        return to;
 
     if(!this_is_dir)
         curr.pop();

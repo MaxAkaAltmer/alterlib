@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2018 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2021 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,15 +24,17 @@ SOFTWARE.
 
 *****************************************************************************/
 
-#include "../math_int.h"
+#include "../amath_int.h"
 #include "arch_prefix.h"
+
+using namespace alt;
 
 
 int _pref_golomb_size(unsigned int val, int p)
 {
  int retval=val/p+1;
  int ost=val%p;
- int floor=__bsr32(p)-1;
+ int floor=imath::bsr32(p)-1;
         if(ost<((1<<(floor+1))-p))return retval+floor;
         return retval+floor+1;
 }
@@ -49,7 +51,7 @@ int _pref_p1qX_size(uint32 val, int q)
         return i;
 }
 
-int _pref_p1qX_encoder(uint64 val, int q, AData &buff)
+int _pref_p1qX_encoder(uint64 val, int q, alt::byteArray &buff)
 {
  int i=1,j;
         while(val>=((uint64)1<<(q*i)))
@@ -66,7 +68,7 @@ int _pref_p1qX_encoder(uint64 val, int q, AData &buff)
         return i;
 }
 
-int _pref_p1qX_encoder(uint32 val, int q, AData &buff)
+int _pref_p1qX_encoder(uint32 val, int q, alt::byteArray &buff)
 {
  int i=1,j;
         while(val>=((uint32)1<<(q*i)))
@@ -83,7 +85,7 @@ int _pref_p1qX_encoder(uint32 val, int q, AData &buff)
         return i;
 }
 
-int _pref_p1qX_encoder(uint32 val, int q, ATArray<uint32> &buff)
+int _pref_p1qX_encoder(uint32 val, int q, alt::array<uint32> &buff)
 {
  int i=1,j;
         while(val>=((uint32)1<<(q*i)))
@@ -100,7 +102,7 @@ int _pref_p1qX_encoder(uint32 val, int q, ATArray<uint32> &buff)
         return i;
 }
 
-int _pref_p1qX_decoder(uint32 *val, int q, ATArray<uint32> &buff)
+int _pref_p1qX_decoder(uint32 *val, int q, alt::array<uint32> &buff)
 {
  int i=0,j;
         *val=0;
@@ -241,7 +243,7 @@ int _pref_pqs_size(unsigned int val, int p, int q, int s)
 
 }
 
-void _pref_pqs_encoder(unsigned int val, AAutoBitSpace &buff, int p, int q, int s)
+void _pref_pqs_encoder(unsigned int val, alt::bitSpace<uint32> &buff, int p, int q, int s)
 {
  unsigned int tmp;
  int j,i,k,cnt=0,smask,mask;
@@ -254,11 +256,11 @@ void _pref_pqs_encoder(unsigned int val, AAutoBitSpace &buff, int p, int q, int 
         {
                 if(val<(unsigned int)((1<<(-s))-1)) //когда в его приделах
                 {
-                        buff.Write(val,-s);
+                        buff.write(val,-s);
                         return;
                 }
                 val-=((1<<(-s))-1);  //вычитаем максимум
-                buff.Write(((1<<(-s))-1),-s);
+                buff.write(((1<<(-s))-1),-s);
                 s=0;
         }
 
@@ -272,13 +274,13 @@ void _pref_pqs_encoder(unsigned int val, AAutoBitSpace &buff, int p, int q, int 
                 {
                         if(val<(unsigned int)(1<<q))  //попали в начало интервала?
                         {
-                                buff.Write(0,p);
-                                buff.Write(val,q);
+                                buff.write(0,p);
+                                buff.write(val,q);
                                 return;
                         }
                         val-=(1<<q);       //конец интервала
-                        buff.Write(1,p);
-                        buff.Write(val,q);
+                        buff.write(1,p);
+                        buff.write(val,q);
                         return;
                 }
                 else val-=tmp; //первый интервал позади
@@ -291,24 +293,24 @@ void _pref_pqs_encoder(unsigned int val, AAutoBitSpace &buff, int p, int q, int 
                                 tmp= 1<<(q*i-s);
                                 if( val<tmp ) //начало интервала
                                 {
-                                        buff.Write(i-1,p);
-                                        buff.Write(val|(~smask),q);
+                                        buff.write(i-1,p);
+                                        buff.write(val|(~smask),q);
                                         val>>=q-s;
                                         for(j=1;j<i;j++)
                                         {
-                                                buff.Write(val,q);
+                                                buff.write(val,q);
                                                 val>>=q;
                                         }
                                         return;
                                 }
                                 val-=tmp;
-                                buff.Write(i,p);  //конец интервала
-                                buff.Write( (val&smask) | ( (val>>((i-1)*q))&(~smask) ) ,q);
+                                buff.write(i,p);  //конец интервала
+                                buff.write( (val&smask) | ( (val>>((i-1)*q))&(~smask) ) ,q);
                                 val>>=q-s;
                                 val&= (1<<((i-1)*q))-1;
                                 for(j=1;j<i;j++)
                                 {
-                                        buff.Write(val,q);
+                                        buff.write(val,q);
                                         val>>=q;
                                 }
                                 return;
@@ -336,22 +338,22 @@ void _pref_pqs_encoder(unsigned int val, AAutoBitSpace &buff, int p, int q, int 
                 if(k>=(1<<p))
                 {
                         k=(1<<p)-1;
-                        buff.Write(k,p);
+                        buff.write(k,p);
                 }
                 else
                 {
-                        buff.Write(k-1,p);
+                        buff.write(k-1,p);
                 }
                 for(j=0;j<k;j++)
                 {
                         if(!i && !j)
                         {
-                                buff.Write(val|(~smask),q);
+                                buff.write(val|(~smask),q);
                                 val>>=q-s;
                         }
                         else
                         {
-                                buff.Write(val,q);
+                                buff.write(val,q);
                                 val>>=q;
                         }
                 }
@@ -359,99 +361,21 @@ void _pref_pqs_encoder(unsigned int val, AAutoBitSpace &buff, int p, int q, int 
 
 }
 
-unsigned int _pref_pqs_decoder(AAutoBitSpace &buff, int p, int q, int s)
+unsigned int _pref_pqs_decoder(alt::bitSpace<uint32> &buff, int p, int q, int s)
 {
  unsigned int rv=0,pref,suff,tmp=0,i=0,j,k;
 
         if(s<0)
         {
-                tmp=buff.Read(-s);
-                if( tmp< (unsigned int)((1<<(-s))-1) )return tmp;
-                s=0;
-        }
-
-        if( s ) //удлиннение интервала
-        {
-                pref=buff.Read(p);
-                suff=buff.Read(q);
-                if( pref==(unsigned int)((1<<p)-1) && (suff>>(q-s))==(unsigned int)((1<<s)-1) ) //за начальным интервалом
-                {
-                        //корректируем значение
-                        rv=suff&((1<<(q-s))-1);
-                        for(i=0;i<(unsigned int)(1<<p)-1;i++)
-                        {
-                                if(i)
-                                {
-                                        suff=buff.Read(q);
-                                        rv|=suff<<(i*q-s);
-                                }
-                                tmp+=1<<((i+1)*q);
-                        }
-                        tmp+=((1<<s)-1)*(1<<(q-s));
-                }
-                else if(pref==0) //начало первого интервала
-                {
-                        return suff;
-                }
-                else if( pref==1 && (suff>>(q-s))!=(((unsigned int)1<<s)-1) ) //конец первого интервала
-                {
-                        return suff+(1<<q);
-                }
-                else  //где-то в s-модифицированном интервале
-                {
-                        tmp=((1<<s)-1)*(1<<(q-s));
-                        tmp+=1<<q;
-                        if( (suff>>(q-s))!=(unsigned int)((1<<s)-1) )
-                        {
-                                tmp+=1<<(q*pref-s);
-                                tmp+=(suff>>(q-s))<<(q*pref-s);
-                        }
-                        else pref++;
-
-                        rv=suff&((1<<(q-s))-1);
-                        for(i=1;i<pref;i++)
-                        {
-                                if((i+1)!=pref)tmp+=1<<((i+1)*q);
-                                suff=buff.Read(q);
-                                rv|=suff<<(i*q-s);
-                        }
-                        return tmp+rv;
-                }
-        }
-
-        do
-        {
-                k=pref=buff.Read(p);
-                if(pref!=(unsigned int)((1<<p)-1))k++;
-                for(j=0;j<k;j++,i++)
-                {
-                        if( !((j+1)==k && pref!=(((unsigned int)1<<p)-1)) )tmp+=1<<((i+1)*q-s);
-                        suff=buff.Read(q);
-                        rv|=suff<<(i*q-s);
-                }
-        }
-        while(pref==(((unsigned int)1<<p)-1));
-
-        return tmp+rv;
-
-}
-
-
-unsigned int _pref_pqs_decoder(ABitSpace &buff, int p, int q, int s)
-{
- unsigned int rv=0,pref,suff,tmp=0,i=0,j,k;
-
-        if(s<0)
-        {
-                tmp=buff.Read(-s);
+                tmp=buff.read(-s);
                 if( tmp<(unsigned int)((1<<(-s))-1) )return tmp;
                 s=0;
         }
 
         if( s ) //удлиннение интервала
         {
-                pref=buff.Read(p);
-                suff=buff.Read(q);
+                pref=buff.read(p);
+                suff=buff.read(q);
                 if( pref==(((unsigned int)1<<p)-1) && (suff>>(q-s))==(((unsigned int)1<<s)-1) ) //за начальным интервалом
                 {
                         //корректируем значение
@@ -460,7 +384,7 @@ unsigned int _pref_pqs_decoder(ABitSpace &buff, int p, int q, int s)
                         {
                                 if(i)
                                 {
-                                        suff=buff.Read(q);
+                                        suff=buff.read(q);
                                         rv|=suff<<(i*q-s);
                                 }
                                 tmp+=1<<((i+1)*q);
@@ -490,7 +414,7 @@ unsigned int _pref_pqs_decoder(ABitSpace &buff, int p, int q, int s)
                         for(i=1;i<pref;i++)
                         {
                                 if((i+1)!=pref)tmp+=1<<((i+1)*q);
-                                suff=buff.Read(q);
+                                suff=buff.read(q);
                                 rv|=suff<<(i*q-s);
                         }
                         return tmp+rv;
@@ -499,12 +423,12 @@ unsigned int _pref_pqs_decoder(ABitSpace &buff, int p, int q, int s)
 
         do
         {
-                k=pref=buff.Read(p);
+                k=pref=buff.read(p);
                 if(pref!=(((unsigned int)1<<p)-1))k++;
                 for(j=0;j<k;j++,i++)
                 {
                         if( !((j+1)==k && pref!=(((unsigned int)1<<p)-1)) )tmp+=1<<((i+1)*q-s);
-                        suff=buff.Read(q);
+                        suff=buff.read(q);
                         rv|=suff<<(i*q-s);
                 }
         }
@@ -520,7 +444,7 @@ int _pref_levenstain_size(unsigned int val)
  int i;
         val++;
         if(!val)i=33;
-        else i=__bsr32(val-1);
+        else i=imath::bsr32(val-1);
 
         if(i==1)return 1;
         return i*2-1;
@@ -531,62 +455,55 @@ int _pref_omega_size(unsigned int val)
  int i,tmp=0;
         val++;
         if(!val)i=33;
-        else i=__bsr32(val);
+        else i=imath::bsr32(val);
 
         tmp+=i;
         while(i>1)
         {
-                i=__bsr32(i-1);
+                i=imath::bsr32(i-1);
                 tmp+=i;
         };
         return tmp;
 }
 
-void _pref_omega_encoder(unsigned int val, AAutoBitSpace &buff)
+void _pref_omega_encoder(unsigned int val, alt::bitSpace<unsigned int> &buff)
 {
- int oldpos=buff.GetPos();
+ int oldpos=buff.position();
  int size=_pref_omega_size(val);
  int tmp,cnt=1;
 
-        buff.SetPos(oldpos+size-cnt);
-        buff.Write(0,1);
+        buff.setPosition(oldpos+size-cnt);
+        buff.write(0,1);
 
         val++;
         if(!val)  //фикс для переполнения
         {
                 cnt+=33;
                 val=32;
-                buff.SetPos(oldpos+size-cnt);
-                buff.Write(1,1);
-                buff.Write(0,32);
+                buff.setPosition(oldpos+size-cnt);
+                buff.write(1,1);
+                buff.write(0,32);
         }
 
         while(val>1)
         {
-                cnt+=tmp=__bsr32(val);
-                buff.SetPos(oldpos+size-cnt);
-                buff.Write(1,1);  //для корректного декодирования, т.к. в AutoBitSpace младший бит младшему адресу
-                buff.Write(val,tmp-1);   //пропускаем старший бит
+                cnt+=tmp=imath::bsr32(val);
+                buff.setPosition(oldpos+size-cnt);
+                buff.write(1,1);  //для корректного декодирования, т.к. в AutoBitSpace младший бит младшему адресу
+                buff.write(val,tmp-1);   //пропускаем старший бит
                 val=tmp-1;
         }
-        buff.SetPos(oldpos+size);
+        buff.setPosition(oldpos+size);
 }
 
-unsigned int _pref_omega_decoder(AAutoBitSpace &buff)
+unsigned int _pref_omega_decoder(alt::bitSpace<uint32> &buff)
 {
  int rv=1;
 
-        while(buff.Read(1))
+        while(buff.read(1))
         {
-                rv=(1<<rv)+buff.Read(rv);
+                rv=(1<<rv)+buff.read(rv);
         }
-        return rv-1;
-}
-
-unsigned int _pref_omega_decoder(ABitSpace &buff)
-{
- int rv=1;
-        while(buff.Read(1))rv=(1<<rv)+buff.Read(rv);
         return rv-1;
 }
 
@@ -596,8 +513,8 @@ int _pref_delta_size(unsigned int val)
  int i,tmp;
         val++;
         if(!val)i=33;
-        else i=__bsr32(val);
+        else i=imath::bsr32(val);
 
-        tmp=__bsr32(i);
+        tmp=imath::bsr32(i);
         return tmp*2+i-2;
 }

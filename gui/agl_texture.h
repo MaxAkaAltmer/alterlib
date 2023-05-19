@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2018 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -29,9 +29,13 @@ SOFTWARE.
 #define QF_GL_TEXTURE_H
 
 #ifdef ANDROID_NDK
-    #include <EGL/egl.h>
+    #include <EGL/egl.h> // requires ndk r5 or newer
     #include <GLES/gl.h>
+#elif __APPLE__
+    #include <glu.h>
+    #include <glext.h>
 #elif QT_OPENGL_LIB
+    #undef WIN32_LEAN_AND_MEAN
     #include <QtOpenGL>
     #include <GL/glu.h>
 #else
@@ -39,8 +43,8 @@ SOFTWARE.
     #include <GL/glext.h>
 #endif
 
-#include "../math_int.h"
-#include "../math_vec.h"
+#include "../amath_int.h"
+#include "../amath_vec.h"
 #include "../acolor.h"
 
 /////////////////////////////////////////////////////////////////////////
@@ -68,12 +72,12 @@ public:
 
     AGLTexture& operator=(const AGLTexture &val);
 
-    void drawParticle(real32 x, real32 y, real32 z, real32 zoom, AColor col=AColor()) const;
+    void drawParticle(real32 x, real32 y, real32 z, real32 zoom, alt::colorRGBA col=alt::colorRGBA()) const;
     void drawRect(real32 x, real32 y, real32 w, real32 h) const;
-    void drawRectPart(ATRect<real32> scr_part, ATRect<real32> tex_part) const;
-    void drawRectPartInt(ATRect<real32> scr_part, ATRect<int32> tex_part) const;
+    void drawRectPart(alt::rect<real32> scr_part, alt::rect<real32> tex_part) const;
+    void drawRectPartInt(alt::rect<real32> scr_part, alt::rect<int32> tex_part) const;
     void drawFrameOver(int w, int h) const; //вписывает экран (w,h) в текстуру
-    void drawBox(ATRect<real32> box, real32 border, AColor col=AColor());
+    void drawBox(alt::rect<real32> box, real32 border, alt::colorRGBA col=alt::colorRGBA());
 
     void MakeCurrent() const
     {
@@ -130,15 +134,15 @@ public:
         return (real32)y/(real32)hand->alheight;
     }
 
-    ATRect<int> originRect()
+    alt::rect<int> originRect()
     {
-        if(!hand) return ATRect<int>();
-        return ATRect<int>(0,0,hand->width,hand->height);
+        if(!hand) return alt::rect<int>();
+        return alt::rect<int>(0,0,hand->width,hand->height);
     }
-    ATRect<real32> normalRect()
+    alt::rect<real32> normalRect()
     {
-        if(!hand) return ATRect<real32>();
-        return ATRect<int>(0,0,normalWidth(),normalHeight());
+        if(!hand) return alt::rect<real32>();
+        return alt::rect<int>(0,0,normalWidth(),normalHeight());
     }
 
     static int pixelSize(uint32 format);

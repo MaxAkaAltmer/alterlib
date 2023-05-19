@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2018 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,44 +25,45 @@ SOFTWARE.
 *****************************************************************************/
 
 #include "aimage.h"
-#include "at_string_utils.h"
 #include "compress/arch_diction.h"
 #include "compress/arch_prefix.h"
 
-AImage::AImage()
+using namespace alt;
+
+image::image()
 {
     data=NULL;
 }
 
-AImage::Internal* AImage::CreateInternal(int w, int h, int d, const uint32 *buff)
+image::Internal* image::CreateInternal(int w, int h, int d, const uint32 *buff)
 {
     Internal *dat = (Internal*) new uint8[sizeof(Internal)+w*h*d*sizeof(uint32)];
     dat->refcount=1;
     dat->w=w;
     dat->h=h;
     dat->d=d;
-    if(buff)_ats_memcpy(dat->buff,buff,w*h*d);
-    else _ats_memset<uint32>(dat->buff,0,w*h*d);
+    if(buff)utils::memcpy(dat->buff,buff,w*h*d);
+    else utils::memset<uint32>(dat->buff,0,w*h*d);
     return dat;
 }
 
-AImage::AImage(const AImage &img)
+image::image(const image &img)
 {
     data=img.data;
     if(data)data->refcount++;
 }
 
-AImage::AImage(int w, int h, const void *buff, int d)
+image::image(int w, int h, const void *buff, int d)
 {
     data=CreateInternal(w,h,d,(const uint32*)buff);
 }
 
-AImage::~AImage()
+image::~image()
 {
     DeleteInternal();
 }
 
-void AImage::DeleteInternal()
+void image::DeleteInternal()
 {
     if(data)
     {
@@ -75,7 +76,7 @@ void AImage::DeleteInternal()
     }
 }
 
-AImage& AImage::operator=(const AImage &img)
+image& image::operator=(const image &img)
 {
     if(data==img.data)return *this;
     DeleteInternal();
@@ -84,7 +85,7 @@ AImage& AImage::operator=(const AImage &img)
     return *this;
 }
 
-int AImage::countNonTransp() const
+int image::countNonTransp() const
 {
     int rv=0;
     for(int i=0;i<data->w*data->h*data->d;i++)
@@ -92,15 +93,15 @@ int AImage::countNonTransp() const
     return rv;
 }
 
-AImage AImage::xorResult(const AImage& v1, const AImage& v2)
+image image::xorResult(const image& v1, const image& v2)
 {
-    if(!v1.isValid() || !v2.isValid())return AImage();
+    if(!v1.isValid() || !v2.isValid())return image();
 
-    int w=__min_val(v1.data->w,v2.data->w);
-    int h=__min_val(v1.data->h,v2.data->h);
-    int d=__min_val(v1.data->d,v2.data->d);
+    int w=imath::min(v1.data->w,v2.data->w);
+    int h=imath::min(v1.data->h,v2.data->h);
+    int d=imath::min(v1.data->d,v2.data->d);
 
-    AImage rv(w,h,NULL,d);
+    image rv(w,h,NULL,d);
 
     for(int k=0;k<d;k++)
     {
@@ -115,9 +116,9 @@ AImage AImage::xorResult(const AImage& v1, const AImage& v2)
     return rv;
 }
 
-AData AImage::toData(int compression, bool just_alpha)
+byteArray image::toData(int compression, bool just_alpha)
 {
-    AData rv;
+    byteArray rv;
     if(!data)return rv;
     uint32 tmp=data->w;
     _pref_p1qX_encoder(tmp,7,rv);
@@ -125,7 +126,7 @@ AData AImage::toData(int compression, bool just_alpha)
     _pref_p1qX_encoder(tmp,7,rv);
     tmp=data->d;
     _pref_p1qX_encoder(tmp,7,rv);
-    AData im;
+    byteArray im;
     if(just_alpha)
     {
         uint8 *buff=new uint8[data->w*data->h*data->d];
@@ -141,24 +142,26 @@ AData AImage::toData(int compression, bool just_alpha)
     return rv;
 }
 
-AImage AImage::fromData(AData &val)
+image image::fromData(byteArray &val)
 {
     uint32 w;
     int cnt=_pref_p1q7_decoder(&w,val(),val.size());
-    if(cnt<0)return AImage();
+    if(cnt<0)return image();
     uint32 h;
     int n=_pref_p1q7_decoder(&h,val()+cnt,val.size()-cnt);
-    if(n<0)return AImage(); cnt+=n;
+    if(n<0)return image();
+    cnt+=n;
     uint32 d;
     n=_pref_p1q7_decoder(&d,val()+cnt,val.size()-cnt);
-    if(n<0)return AImage(); cnt+=n;
-    AData im;
+    if(n<0)return image();
+    cnt+=n;
+    byteArray im;
     _arch_diction_decode(im,val()+cnt,val.size()-cnt);
-    if((uint32)im.size()!=w*h*d*4)return AImage();
-    return AImage(w,h,im(),d);
+    if((uint32)im.size()!=w*h*d*4)return image();
+    return image(w,h,im(),d);
 }
 
-void AImage::CloneInternal()
+void image::CloneInternal()
 {
     if(!data)return;
     if(data->refcount==1)return;
@@ -167,7 +170,7 @@ void AImage::CloneInternal()
     data=dat;
 }
 
-void AImage::insert(const AImage &img, int x, int y, int z)
+void image::insert(const image &img, int x, int y, int z)
 {
     if(!data)return;
     if(!img.isValid())return;
@@ -201,22 +204,22 @@ inline uint8 _aimg_saturate( float x )
     return rv;
 }
 
-float AImage::get_subpixel(int d, int y, int x, int ic)
+float image::get_subpixel(int d, int y, int x, int ic)
 {
     if(x>=data->w)x=data->w-1;
     if(y>=data->h)y=data->h-1;
     if(x<0)x=0;
     if(y<0)y=0;
     int ind=d*data->w*data->h*4+y*data->w*4+x*4+ic;
-    if(ind>=data->w*data->h*data->w)return 0;
+    if(ind>=data->w*data->h*data->d*4)return 0;
     if(ind<0)return 0;
     return ((uint8*)data->buff)[d*data->w*data->h*4+y*data->w*4+x*4+ic];
 }
 
-AImage AImage::resize(int w, int h)
+image image::resize(int w, int h)
 {
-    if(!data)return AImage();
-    AImage rv(w,h,NULL,data->d);
+    if(!data)return image();
+    image rv(w,h,NULL,data->d);
 
     uint8 *out=(uint8*)rv.data->buff;
 
@@ -270,7 +273,7 @@ AImage AImage::resize(int w, int h)
     return rv;
 }
 
-uint32 aHash(const AImage &val)
+uint32 alt::aHash(const image &val)
 {
     uint32 rv=val.depth()^val.height()^val.width();
     for(int i=0;i<val.depth()*val.height()*val.width();i++)

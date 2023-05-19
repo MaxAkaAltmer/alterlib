@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2020 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -27,194 +27,215 @@ SOFTWARE.
 #ifndef AVARIANT_H
 #define AVARIANT_H
 
-#include "types.h"
-#include "at_hash.h"
-#include "at_array.h"
-#include "adata.h"
+#include "atypes.h"
 #include "astring.h"
+#include "at_array.h"
+#include "abyte_array.h"
 
-//todo: конвертация Real в строку и обратно
+namespace alt {
 
-class AVariant
-{
-public:
-    AVariant()
+    class variant
     {
-        type=tInvalide;
-    }
-    AVariant(const AVariant &val)
-    {
-        type=tInvalide;
-        *this=val;
-    }
-    AVariant(bool val)
-    {
-        type=tBool;
-        data.vBool=val;
-    }
-    AVariant(intx val)
-    {
-        type=tInt;
-        data.vInt=val;
-    }
-    AVariant(int val)
-    {
-        type=tInt;
-        data.vInt=val;
-    }
-    AVariant(uintx val)
-    {
-        type=tInt;
-        data.vInt=val;
-    }
-    AVariant(uint val)
-    {
-        type=tInt;
-        data.vInt=val;
-    }
-#ifndef ANDROID_NDK
-    AVariant(realx val)
-    {
-        type=tReal;
-        data.vReal=val;
-    }
-#endif
-    AVariant(real val)
-    {
-        type=tReal;
-        data.vReal=val;
-    }
-    AVariant(const AString &val)
-    {
-        type=tString;
-        data.vString=new AString;
-        *data.vString=val;
-    }
-    AVariant(const AData &val)
-    {
-        type=tData;
-        data.vData=new AData;
-        *data.vData=val;
-    }
-    AVariant(const ATHash<AString,AVariant> &val)
-    {
-        type=tHash;
-        data.vHash=new ATHash<AString,AVariant>;
-        *data.vHash=val;
-    }
-    AVariant(const ATArray<AVariant> &val)
-    {
-        type=tArray;
-        data.vArray=new ATArray<AVariant>;
-        *data.vArray=val;
-    }
-
-    AVariant(const char *val)
-    {
-        type=tString;
-        data.vString=new AString(val);
-    }
-
-    AVariant(void *val, int size)
-    {
-        if(size<=0)
+    public:
+        variant()
         {
-            type=tPointer;
-            data.vPointer=val;
+            type=tInvalide;
         }
-        else
+        variant(const variant &val)
+        {
+            type=tInvalide;
+            *this=val;
+        }
+        variant(bool val)
+        {
+            type=tBool;
+            data.vBool=val;
+        }
+        variant(intx val)
+        {
+            type=tInt;
+            data.vInt=val;
+        }
+        variant(int val)
+        {
+            type=tInt;
+            data.vInt=val;
+        }
+        variant(uintx val)
+        {
+            type=tInt;
+            data.vInt=val;
+        }
+        variant(long unsigned int val)
+        {
+            type=tInt;
+            data.vInt=val;
+        }
+        variant(uint val)
+        {
+            type=tInt;
+            data.vInt=val;
+        }
+    #ifndef ANDROID_NDK
+        variant(realx val)
+        {
+            type=tReal;
+            data.vReal=val;
+        }
+    #endif
+        variant(real val)
+        {
+            type=tReal;
+            data.vReal=val;
+        }
+        variant(const string &val)
+        {
+            type=tString;
+            data.vString=new string;
+            *data.vString=val;
+        }
+        variant(const byteArray &val)
         {
             type=tData;
-            data.vData=new AData(val,size);
+            data.vData=new byteArray;
+            *data.vData=val;
         }
-    }
-
-    ~AVariant()
-    {
-        clear();
-    }
-
-    void clear()
-    {
-        switch(type)
+        variant(const hash<string,variant> &val)
         {
-        case tString:
-            delete data.vString;
-            break;
-        case tData:
-            delete data.vData;
-            break;
-        case tHash:
-            delete data.vHash;
-            break;
-        case tArray:
-            delete data.vArray;
-            break;
-        default:
-            break;
-        };        
-        type=tInvalide;
-    }
+            type=tHash;
+            data.vHash=new hash<string,variant>;
+            *data.vHash=val;
+        }
+        variant(const array<variant> &val)
+        {
+            type=tArray;
+            data.vArray=new array<variant>;
+            *data.vArray=val;
+        }
 
-    //////////////////////////////////////////////////////////////////////////////////
-    //преобразовалки
-    bool toBool(bool *ok=NULL) const;
-    intx toInt(bool *ok=NULL) const;
-    uintx toUInt(bool *ok=NULL) const {return toInt(ok);}
-    realx toReal(bool *ok=NULL) const;
-    AData toData(bool *ok=NULL) const;
-    AString toString(bool *ok=NULL) const;
-    ATHash<AString,AVariant> toHash(bool *ok=NULL) const;
-    ATArray<AVariant> toArray(bool *ok=NULL) const;
-    ATArray<AVariant>* pointArray();
-    void* toPointer(bool *ok=NULL) const;    
+        variant(const char *val)
+        {
+            type=tString;
+            data.vString=new string(val);
+        }
 
-    bool isValid() const {return type!=tInvalide;}
-    bool isBool() const {return type==tBool;}
-    bool isInt() const {return type==tInt;}
-    bool isReal() const {return type==tReal;}
-    bool isString() const {return type==tString;}
-    bool isData() const {return type==tData;}
-    bool isHash() const {return type==tHash;}
-    bool isArray() const {return type==tArray;}
-    bool isPointer() const {return type==tPointer;}
+        variant(void *val, int size)
+        {
+            if(size<=0)
+            {
+                type=tPointer;
+                data.vPointer=val;
+            }
+            else
+            {
+                type=tData;
+                data.vData=new byteArray(val,size);
+            }
+        }
 
-    AVariant& operator=(const AVariant &val);
+        ~variant()
+        {
+            clear();
+        }
 
-    bool operator==(const AVariant &val) const;
-    bool operator!=(const AVariant &val) const
-    {
-        return !((*this)==val);
-    }
+        void clear()
+        {
+            switch(type)
+            {
+            case tString:
+                delete data.vString;
+                break;
+            case tData:
+                delete data.vData;
+                break;
+            case tHash:
+                delete data.vHash;
+                break;
+            case tArray:
+                delete data.vArray;
+                break;
+            default:
+                break;
+            };
+            type=tInvalide;
+        }
 
-private:
+        //////////////////////////////////////////////////////////////////////////////////
+        //преобразовалки
+        bool toBool(bool *ok=NULL) const;
+        intx toInt(bool *ok=NULL) const;
+        uintx toUInt(bool *ok=NULL) const {return toInt(ok);}
+        realx toReal(bool *ok=NULL) const;
+        byteArray toData(bool *ok=NULL) const;
+        string toString(bool *ok=NULL) const;
+        hash<string, variant> toHash(bool *ok=NULL) const;
+        array<variant> toArray(bool *ok=NULL) const;
+        array<variant>* pointArray();
+        void* toPointer(bool *ok=NULL) const;
 
-    enum Type
-    {
-        tInvalide = 0,
-        tBool,
-        tInt,
-        tReal,
-        tString,
-        tData,
-        tHash,
-        tArray,
-        tPointer
+        bool isValid() const {return type!=tInvalide;}
+        bool isBool() const {return type==tBool;}
+        bool isInt() const {return type==tInt;}
+        bool isReal() const {return type==tReal;}
+        bool isString() const {return type==tString;}
+        bool isData() const {return type==tData;}
+        bool isHash() const {return type==tHash;}
+        bool isArray() const {return type==tArray;}
+        bool isPointer() const {return type==tPointer;}
+
+        variant& operator=(const variant &val);
+
+        bool operator==(const variant &val) const;
+        bool operator!=(const variant &val) const
+        {
+            return !((*this)==val);
+        }
+
+        bool operator<(const variant &val) const;
+        bool operator>=(const variant &val) const;
+
+        bool operator<=(const variant &val) const;
+        bool operator>(const variant &val) const;
+
+        variant& operator += (const variant &val);
+        variant& operator -= (const variant &val);
+        variant& operator *= (const variant &val);
+        variant& operator /= (const variant &val);
+        variant& operator %= (const variant &val);
+
+        variant neg_value();
+        variant not_value();
+
+    private:
+
+        enum Type
+        {
+            tInvalide = 0,
+            tBool,
+            tInt,
+            tReal,
+            tString,
+            tData,
+            tHash,
+            tArray,
+            tPointer
+        };
+
+        Type type;
+        union
+        {
+            //стандартные данные
+            bool vBool;
+            intx vInt;
+            realx vReal;
+            string *vString;
+            byteArray *vData;
+            hash<string,variant> *vHash;
+            array<variant> *vArray;
+            void *vPointer;
+        }data;
     };
 
-    Type type;
-    union
-    {
-        //стандартные данные
-        bool vBool;
-        intx vInt;
-        realx vReal;
-        AString *vString;
-        AData *vData;
-        ATHash<AString,AVariant> *vHash;
-        ATArray<AVariant> *vArray;
-        void *vPointer;
-    }data;
-};
+} // namespace alt
 
 #endif // AVARIANT_H

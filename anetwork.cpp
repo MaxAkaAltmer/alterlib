@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2020 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,11 +24,12 @@ SOFTWARE.
 
 *****************************************************************************/
 
-#include "../glob/asocket.h"
-#include "../glob/athread.h"
-#include "../glob/atime.h"
+#include "anetwork.h"
+#include "athread.h"
+#include "atime.h"
 #if !defined(__linux) && !defined(__APPLE__)
     #include <winsock2.h>
+    #include <process.h>
 #else
     #include <sys/socket.h>
     #include <netinet/in.h>
@@ -60,22 +61,24 @@ static int WSAGetLastError()
 
 #endif
 
+using namespace alt;
+
 //////////////////////////////////////////////////////////////////////////
 //разбор ошибок
 
-static ARetCode errFailInitLib(){return ARetCode(-1);}
-static ARetCode errInvalideIP(){return ARetCode(-2);}
-static ARetCode errInvalideTransportType(){return ARetCode(-3);}
-static ARetCode errSocketCreate(){return ARetCode(-4);}
-static ARetCode errConnect(){return ARetCode(-5);}
-static ARetCode errFailOnRead(){return ARetCode(-6);}
-static ARetCode errFailOnWrite(){return ARetCode(-7);}
-static ARetCode errSelect(){return ARetCode(-8);}
-static ARetCode errSocketUnblock(){return ARetCode(-9);}
-static ARetCode errSocketBind(){return ARetCode(-10);}
-static ARetCode errSocketListen(){return ARetCode(-11);}
+static retCode errFailInitLib(){return retCode(-1);}
+static retCode errInvalideIP(){return retCode(-2);}
+static retCode errInvalideTransportType(){return retCode(-3);}
+static retCode errSocketCreate(){return retCode(-4);}
+static retCode errConnect(){return retCode(-5);}
+static retCode errFailOnRead(){return retCode(-6);}
+static retCode errFailOnWrite(){return retCode(-7);}
+static retCode errSelect(){return retCode(-8);}
+static retCode errSocketUnblock(){return retCode(-9);}
+static retCode errSocketBind(){return retCode(-10);}
+static retCode errSocketListen(){return retCode(-11);}
 
-AString ASocket::errorDescriptor(ARetCode code)
+string connection::errorDescriptor(retCode code)
 {
     switch(code.get())
     {
@@ -103,14 +106,14 @@ struct ASocketInternal
 {    
     SOCKET          sock;
     sockaddr_in     addr;
-    ARetCode    last_error;
+    retCode    last_error;
     int initLevel;
     bool blocking;
 };
 
 //////////////////////////////////////////////////////////////////////////
 //Нативная реализация сёкета
-ASocket::ASocket(TransportType type, const AString &host, int port, bool blocking)
+connection::connection(TransportType type, const string &host, int port, bool blocking)
 {    
     internal = new ASocketInternal;
     _type=type;
@@ -137,7 +140,7 @@ ASocket::ASocket(TransportType type, const AString &host, int port, bool blockin
 }
 
 
-ASocket::~ASocket()
+connection::~connection()
 {
     ASocketInternal *hand=(ASocketInternal*)internal;
 
@@ -151,7 +154,7 @@ ASocket::~ASocket()
     delete hand;    
 }
 
-ASocket& ASocket::setOption(OptionValue opt, const AVariant &val)
+alt::connection& connection::setOption(OptionValue opt, const variant &val)
 {
     ASocketInternal *hand=(ASocketInternal*)internal;
 
@@ -176,7 +179,7 @@ ASocket& ASocket::setOption(OptionValue opt, const AVariant &val)
 }
 
 
-ARetCode ASocket::connect()
+retCode connection::connect()
 {
     disconnect();
 
@@ -205,13 +208,13 @@ ARetCode ASocket::connect()
     //создание сёкета
     switch(_type)
     {
-    case ASocket::UDP:
+    case connection::UDP:
         hand->sock=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         break;
-    case ASocket::TCP:
+    case connection::TCP:
         hand->sock=socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         break;
-    case ASocket::ICMP:
+    case connection::ICMP:
         hand->sock=socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
         break;
     default:
@@ -262,7 +265,7 @@ ARetCode ASocket::connect()
     return 1;
 }
 
-ARetCode ASocket::status()
+retCode connection::status()
 {
     ASocketInternal *hand=(ASocketInternal*)internal;
     if(hand->initLevel<3)return hand->last_error;
@@ -293,13 +296,13 @@ ARetCode ASocket::status()
     return 1;
 }
 
-ARetCode ASocket::lastError()
+retCode connection::lastError()
 {
     ASocketInternal *hand=(ASocketInternal*)internal;
     return hand->last_error;
 }
 
-ARetCode ASocket::disconnect()
+retCode connection::disconnect()
 {
     ASocketInternal *hand=(ASocketInternal*)internal;
 
@@ -319,10 +322,10 @@ ARetCode ASocket::disconnect()
     return 0;
 }
 
-ARetCode ASocket::send(const void *data, int size)
+retCode connection::send(const void *data, int size)
 {
     ASocketInternal *hand=(ASocketInternal*)internal;
-    ARetCode stat=status();
+    retCode stat=status();
     if(stat.value())
     {
         int rval=::send(hand->sock,(char*)data,size,0);
@@ -348,15 +351,15 @@ ARetCode ASocket::send(const void *data, int size)
     return hand->last_error;
 }
 
-ARetCode ASocket::sendAll(const void *data, int size, int timeout_us)
+retCode connection::sendAll(const void *data, int size, int timeout_us)
 {
     ASocketInternal *hand=(ASocketInternal*)internal;
     int count=size;
     const uint8 *buff=(const uint8*)data;
-    uint64 stamp=ATime::uStamp();
+    uint64 stamp=time::uStamp();
     do
     {
-        ARetCode code=send(buff,count);
+        retCode code=send(buff,count);
         if(code.error())return code;
         count-=code.get();
         buff+=code.get();
@@ -364,23 +367,23 @@ ARetCode ASocket::sendAll(const void *data, int size, int timeout_us)
         {
             if(timeout_us>0)
             {
-                uint64 curr=ATime::uStamp();
+                uint64 curr=time::uStamp();
                 if(curr-stamp>(uint64)timeout_us)
                 {
                     hand->last_error=-1001;
                     return hand->last_error;
                 }
             }
-            aSleep(0);
+            sleep(0);
         }
     }while(count);
     return size;
 }
 
-ARetCode ASocket::waitData(int time_ms)
+retCode connection::waitData(int time_ms)
 {
     ASocketInternal *hand=(ASocketInternal*)internal;
-    ARetCode stat=status();
+    retCode stat=status();
     if(stat.value())
     {
         fd_set r;
@@ -406,10 +409,10 @@ ARetCode ASocket::waitData(int time_ms)
     return hand->last_error;
 }
 
-ARetCode ASocket::recv(void *data, int size)
+retCode connection::recv(void *data, int size)
 {
     ASocketInternal *hand=(ASocketInternal*)internal;
-    ARetCode stat=status();
+    retCode stat=status();
     if(stat.value())
     {
         int rval=::recv(hand->sock,(char*)data,size,0);
@@ -435,15 +438,15 @@ ARetCode ASocket::recv(void *data, int size)
     return hand->last_error;
 }
 
-ARetCode ASocket::recvAll(void *data, int size, int timeout_us, int minimal_size)
+retCode connection::recvAll(void *data, int size, int timeout_us, int minimal_size)
 {
     ASocketInternal *hand=(ASocketInternal*)internal;
     int count=minimal_size<0?size:minimal_size, buff_size=size;
     uint8 *buff=(uint8*)data;
-    uint64 stamp=ATime::uStamp();
+    uint64 stamp=time::uStamp();
     do
     {
-        ARetCode code=recv(buff,buff_size);
+        retCode code=recv(buff,buff_size);
         if(code.error())return code;
         count-=code.get();
         buff_size-=code.get();
@@ -452,33 +455,33 @@ ARetCode ASocket::recvAll(void *data, int size, int timeout_us, int minimal_size
         {
             if(timeout_us>0)
             {
-                uint64 curr=ATime::uStamp();
+                uint64 curr=time::uStamp();
                 if(curr-stamp>(uint64)timeout_us)
                 {
                     hand->last_error=-1001;
                     return hand->last_error;
                 }
             }
-            aSleep(0);
+            sleep(0);
         }
     }while(count>0);
     return size-buff_size;
 }
 
-bool ASocket::isIP(const AString &addr)
+bool connection::isIP(const string &addr)
 {
     if(inet_addr(addr())==INADDR_NONE)return false;
     return true;
 }
 
-AString ASocket::toIP(const AString &addr)
+string connection::toIP(const string &addr)
 {
     if(!isIP(addr))
     {
         struct hostent *ip=gethostbyname(addr());
         if(!ip || ip->h_addrtype != AF_INET)
         {
-            return AString();
+            return string();
         }
         return inet_ntoa(*(struct in_addr *) ip->h_addr_list[0]);
     }
@@ -520,7 +523,7 @@ unsigned short in_check(void* buf, size_t len){
     return ~(unsigned short)val;
 }
 
-ARetCode ASocket::ping(AString addr, int delay_us)
+retCode connection::ping(string addr, int delay_us)
 {
 #if !defined(__linux) && !defined(__APPLE__)
     WSADATA WsaData;
@@ -541,17 +544,21 @@ ARetCode ASocket::ping(AString addr, int delay_us)
 
     icmp->type = ICMP_ECHO;
     icmp->code = 0;
+#if !defined(__linux) && !defined(__APPLE__)
+    icmp->id = _getpid();
+#else
     icmp->id = getpid();
+#endif
     icmp->seq = 1;
 
     int len = 64;
     icmp->checksum = in_check(icmp, len);
 
-    ARetCode rc;
-    ASocket sock(ASocket::ICMP,addr,0,false);
+    retCode rc;
+    connection sock(connection::ICMP,addr,0,false);
     if(!(rc=sock.connect()).error())
     {
-        uint64 start=ATime::uStamp();
+        uint64 start=time::uStamp();
         if(!(rc=sock.sendAll(icmp,len,delay_us)).error())
         {
             if(!(rc=sock.recvAll(buffrd,1024,delay_us,20+8)).error())
@@ -562,7 +569,7 @@ ARetCode ASocket::ping(AString addr, int delay_us)
                 }
             }
         }
-        rc=ATime::uStamp()-start;
+        rc=time::uStamp()-start;
     }
 
 #if !defined(__linux) && !defined(__APPLE__)
@@ -577,12 +584,12 @@ struct AServerInternal
 {
     sockaddr_in  addr;
     SOCKET      msock;
-    ARetCode    last_error;
+    retCode    last_error;
     int initLevel;
     bool blocking;
 };
 
-AServer::AServer(ASocket::TransportType type, int port, bool blocking)
+server::server(connection::TransportType type, int port, bool blocking)
 {
     internal = new AServerInternal;
     _type=type;
@@ -607,7 +614,7 @@ AServer::AServer(ASocket::TransportType type, int port, bool blocking)
     hand->initLevel=1;        
 }
 
-AServer::~AServer()
+server::~server()
 {
     AServerInternal *hand=(AServerInternal*)internal;
 
@@ -621,7 +628,7 @@ AServer::~AServer()
     delete hand;
 }
 
-ARetCode AServer::enable(int connLimit)
+retCode server::enable(int connLimit)
 {
     AServerInternal *hand=(AServerInternal*)internal;
     if(!hand->initLevel)return hand->last_error;
@@ -630,10 +637,10 @@ ARetCode AServer::enable(int connLimit)
     //создание сёкета
     switch(_type)
     {
-    case ASocket::UDP:
+    case connection::UDP:
         hand->msock=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         break;
-    case ASocket::TCP:
+    case connection::TCP:
         hand->msock=socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         break;
     default:
@@ -686,7 +693,7 @@ ARetCode AServer::enable(int connLimit)
     return 0;
 }
 
-ARetCode AServer::disable()
+retCode server::disable()
 {
     AServerInternal *hand=(AServerInternal*)internal;
     if(!hand->initLevel)return hand->last_error;
@@ -701,7 +708,7 @@ ARetCode AServer::disable()
     return 0;
 }
 
-AServer& AServer::setOption(ASocket::OptionValue opt, const AVariant &val)
+server& server::setOption(connection::OptionValue opt, const variant &val)
 {
     options[opt]=val;
     return *this;
@@ -712,13 +719,13 @@ struct APeerInternal
     SOCKET          sock;
     sockaddr_in     addr;
     int port;
-    ARetCode    last_error;
+    retCode    last_error;
     int initLevel;
-    ASocket::TransportType type;
+    connection::TransportType type;
     bool blocking;
 };
 
-APeer* AServer::tryAccept()
+peer* server::tryAccept()
 {
     AServerInternal *hand=(AServerInternal*)internal;
     if(hand->initLevel!=4)return NULL;
@@ -762,35 +769,35 @@ APeer* AServer::tryAccept()
 
         if(hand->initLevel>1)
         {
-            if(options.key(i)==ASocket::ORecvBuffSize)
+            if(options.key(i)==connection::ORecvBuffSize)
                 setsockopt(peerhand.sock,SOL_SOCKET,SO_RCVBUF,(char*)&temp,sizeof(int));
-            else if(options.key(i)==ASocket::OSendBuffSize)
+            else if(options.key(i)==connection::OSendBuffSize)
                 setsockopt(peerhand.sock,SOL_SOCKET,SO_SNDBUF,(char*)&temp,sizeof(int));
-            else if(options.key(i)==ASocket::OKeepAlive)
+            else if(options.key(i)==connection::OKeepAlive)
                 setsockopt(peerhand.sock,SOL_SOCKET,SO_KEEPALIVE,(char*)&temp,sizeof(int));
-            else if(_type==ASocket::TCP && options.key(i)==ASocket::ONoDelay)
+            else if(_type==connection::TCP && options.key(i)==connection::ONoDelay)
                 setsockopt(peerhand.sock,IPPROTO_TCP,TCP_NODELAY,(char*)&temp,sizeof(int));
         }
     }
 
-    return new APeer(&peerhand);
+    return new peer(&peerhand);
 }
 
-ARetCode AServer::lastError()
+retCode server::lastError()
 {
     AServerInternal *hand=(AServerInternal*)internal;
     return hand->last_error;
 }
 
 //////////////////////////////////////////////////////////////////////
-APeer::APeer(void *iDatum)
+peer::peer(void *iDatum)
 {
     APeerInternal *hand=new APeerInternal;
     *hand=*((APeerInternal*)iDatum);
     internal=hand;
 }
 
-APeer::~APeer()
+peer::~peer()
 {
     APeerInternal *hand=(APeerInternal*)internal;
     if(hand->initLevel)
@@ -800,10 +807,10 @@ APeer::~APeer()
     }
 }
 
-ARetCode APeer::send(const void *data, int size)
+retCode peer::send(const void *data, int size)
 {
     APeerInternal *hand=(APeerInternal*)internal;
-    ARetCode stat=status();
+    retCode stat=status();
     if(stat.value())
     {
         int rval=::send(hand->sock,(char*)data,size,0);
@@ -812,12 +819,12 @@ ARetCode APeer::send(const void *data, int size)
             rval=WSAGetLastError();
             if(!hand->blocking)
             {
-                if(hand->type==ASocket::TCP && (rval==WSAENOBUFS || rval==WSAEWOULDBLOCK))return 0;
-                if(hand->type==ASocket::UDP && rval==WSAEWOULDBLOCK)return 0;
+                if(hand->type==connection::TCP && (rval==WSAENOBUFS || rval==WSAEWOULDBLOCK))return 0;
+                if(hand->type==connection::UDP && rval==WSAEWOULDBLOCK)return 0;
             }
             else
             {
-                if(hand->type==ASocket::TCP && rval==WSAENOBUFS)return 0;
+                if(hand->type==connection::TCP && rval==WSAENOBUFS)return 0;
             }
             shutdown(hand->sock,SD_BOTH);
             closesocket(hand->sock);
@@ -831,10 +838,10 @@ ARetCode APeer::send(const void *data, int size)
     return hand->last_error;
 }
 
-ARetCode APeer::waitData(int time_ms)
+retCode peer::waitData(int time_ms)
 {
     APeerInternal *hand=(APeerInternal*)internal;
-    ARetCode stat=status();
+    retCode stat=status();
     if(stat.value())
     {
         fd_set r;
@@ -862,10 +869,10 @@ ARetCode APeer::waitData(int time_ms)
     return hand->last_error;
 }
 
-ARetCode APeer::recv(void *data, int size)
+retCode peer::recv(void *data, int size)
 {
     APeerInternal *hand=(APeerInternal*)internal;
-    ARetCode stat=status();
+    retCode stat=status();
     if(stat.value())
     {
         int rval=::recv(hand->sock,(char*)data,size,0);
@@ -874,12 +881,12 @@ ARetCode APeer::recv(void *data, int size)
                 rval=WSAGetLastError();
                 if(!hand->blocking)
                 {
-                    if(hand->type==ASocket::TCP && (rval==WSAEWOULDBLOCK || rval==WSAEMSGSIZE))return 0;
-                    if(hand->type==ASocket::UDP && rval==WSAEWOULDBLOCK)return 0;
+                    if(hand->type==connection::TCP && (rval==WSAEWOULDBLOCK || rval==WSAEMSGSIZE))return 0;
+                    if(hand->type==connection::UDP && rval==WSAEWOULDBLOCK)return 0;
                 }
                 else
                 {
-                    if(hand->type==ASocket::TCP && rval==WSAEMSGSIZE)return 0;
+                    if(hand->type==connection::TCP && rval==WSAEMSGSIZE)return 0;
                 }
                 shutdown(hand->sock,SD_BOTH);
                 closesocket(hand->sock);
@@ -893,14 +900,14 @@ ARetCode APeer::recv(void *data, int size)
     return hand->last_error;
 }
 
-ARetCode APeer::status()
+retCode peer::status()
 {
     APeerInternal *hand=(APeerInternal*)internal;
     if(!hand->initLevel)return hand->last_error;
     return 1;
 }
 
-ARetCode APeer::lastError()
+retCode peer::lastError()
 {
     APeerInternal *hand=(APeerInternal*)internal;
     return hand->last_error;

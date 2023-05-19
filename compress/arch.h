@@ -1,8 +1,8 @@
-/*****************************************************************************
+﻿/*****************************************************************************
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2020 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,38 +24,22 @@ SOFTWARE.
 
 *****************************************************************************/
 
-#ifndef ASTRING_FS_UTILS_H
-#define ASTRING_FS_UTILS_H
+#ifndef ARCH_H
+#define ARCH_H
 
-#include "astring.h"
-#include "at_array.h"
+#include "../atypes.h"
+#include "../abyte_array.h"
 
-class AStringPathParcer
-{
-public:
-    AStringPathParcer(){_defSep='/';}
-    AStringPathParcer(const AString &path){_defSep='/'; setPath(path);}
-    ~AStringPathParcer(){}
+alt::byteArray _arch_data_block_compress_diff(const void *data_p, int size,
+                                          const void *old_data_p);
+bool _arch_data_block_decompress_diff(uint8 *patch, int patch_size,
+                                            uint8 *data, int size);
 
-    void setDefSep(char sep){_defSep=sep;}
-    void setPath(const AString &path);
+alt::byteArray _arch_data_block_compress_best(const void *data_p, int size);
+alt::byteArray _arch_data_block_compress_fast(const void *data_p, int size);
+alt::byteArray _arch_data_block_compress_rle(const void *data_p, int size);
 
-    static ATArray<AString> split(const AString &path, bool scip_empty = false);
+alt::byteArray _arch_data_block_decompress(const void *data_p, int size, int32 predict_size=-1);
 
-    AString getExtension();
-    AString getName();
-    AString getBaseName();
-    AString getNameNoExt();
-    AString getDirectory();
-    AString getPath(){return _path;}
 
-    AString createRelativePath(AString to, bool this_is_dir = true);
-    AString createAbsolutePath(AString to, bool this_is_dir = true);
-
-private:
-
-    AString _path;
-    char _defSep;
-};
-
-#endif // ASTRING_FS_UTILS_H
+#endif // ARCH_H

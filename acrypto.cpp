@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2020 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -26,11 +26,13 @@ SOFTWARE.
 
 #include "acrypto.h"
 #include "crypto/crc32.h"
-#include "crypto/md5.h"
-#include "crypto/sha1.h"
-#include "math_int.h"
+#include "external/crypto/md5.h"
+#include "external/crypto/sha1.h"
+#include "amath_int.h"
 
-ACryptoHash::ACryptoHash(HashFunction method)
+using namespace alt;
+
+cryptoHash::cryptoHash(HashFunction method)
     : hashfun(method)
 {
     switch(hashfun)
@@ -48,7 +50,7 @@ ACryptoHash::ACryptoHash(HashFunction method)
     reset();
 }
 
-ACryptoHash::~ACryptoHash()
+cryptoHash::~cryptoHash()
 {
     switch(hashfun)
     {
@@ -64,7 +66,7 @@ ACryptoHash::~ACryptoHash()
     }
 }
 
-void ACryptoHash::reset()
+void cryptoHash::reset()
 {
     hashdata.clear();
     switch(hashfun)
@@ -81,7 +83,7 @@ void ACryptoHash::reset()
     }
 }
 
-void ACryptoHash::append(const AData &data)
+void cryptoHash::append(const alt::byteArray &data)
 {
     switch(hashfun)
     {
@@ -97,7 +99,7 @@ void ACryptoHash::append(const AData &data)
     }
 }
 
-void ACryptoHash::append(void *buff, int size)
+void cryptoHash::append(void *buff, int size)
 {
     switch(hashfun)
     {
@@ -113,7 +115,7 @@ void ACryptoHash::append(void *buff, int size)
     }
 }
 
-AData ACryptoHash::result()
+alt::byteArray cryptoHash::result()
 {
     if(hashdata.isEmpty())
     {
@@ -126,11 +128,11 @@ AData ACryptoHash::result()
             break;
         case SHA1:
             ((sha1*)context)->finalize();
-            _type_unaligned_write(buff,__bswap32(((sha1*)context)->state[0]));
-            _type_unaligned_write(buff+4,__bswap32(((sha1*)context)->state[1]));
-            _type_unaligned_write(buff+8,__bswap32(((sha1*)context)->state[2]));
-            _type_unaligned_write(buff+12,__bswap32(((sha1*)context)->state[3]));
-            _type_unaligned_write(buff+16,__bswap32(((sha1*)context)->state[4]));
+            alt::unaligned_write(buff,imath::bswap32(((sha1*)context)->state[0]));
+            alt::unaligned_write(buff+4,imath::bswap32(((sha1*)context)->state[1]));
+            alt::unaligned_write(buff+8,imath::bswap32(((sha1*)context)->state[2]));
+            alt::unaligned_write(buff+12,imath::bswap32(((sha1*)context)->state[3]));
+            alt::unaligned_write(buff+16,imath::bswap32(((sha1*)context)->state[4]));
             hashdata.append(buff,20);
             break;
         default: //CRC32
@@ -141,7 +143,7 @@ AData ACryptoHash::result()
     return hashdata;
 }
 
-uint32 ACryptoHash::makeCRC32(void *buff, int size)
+uint32 cryptoHash::makeCRC32(void *buff, int size)
 {
     return __crc32(buff,size);
 }

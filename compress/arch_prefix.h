@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2018 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -27,10 +27,10 @@ SOFTWARE.
 #ifndef PREFIX_CODE_LIBRARY_HEADER_DEFINITION
 #define PREFIX_CODE_LIBRARY_HEADER_DEFINITION
 
-#include "../types.h"
+#include "../atypes.h"
 #include "../at_array.h"
-#include "../abitop.h"
-#include "../adata.h"
+#include "../at_bitspace.h"
+#include "../abyte_array.h"
 
 //кодирование знака
 __inline uint32 _pref_sign2unsign(int32 val)
@@ -72,9 +72,8 @@ int _pref_levenstain_size(unsigned int val);
         Омега код Элиаса, одно из лучших приближений для log[2](val)
 */
 int _pref_omega_size(unsigned int val);
-void _pref_omega_encoder(unsigned int val, AAutoBitSpace &buff);
-unsigned int _pref_omega_decoder(AAutoBitSpace &buff);
-unsigned int _pref_omega_decoder(ABitSpace &buff);
+void _pref_omega_encoder(unsigned int val, alt::bitSpace<uint32> &buff);
+unsigned int _pref_omega_decoder(alt::bitSpace<uint32> &buff);
 
 /*
         Дельта код Элиаса, в особых статистических случаях может превзойти омегу,
@@ -100,18 +99,17 @@ int _pref_delta_size(unsigned int val);
 //оптимизированная реализация наиболее востребованного варианта
 int _pref_p1qX_size(uint32 val, int q);     //возвращает размер в словах
 
-int _pref_p1qX_encoder(uint64 val, int q, AData &buff);
-int _pref_p1qX_encoder(uint32 val, int q, AData &buff);
-int _pref_p1qX_encoder(uint32 val, int q, ATArray<uint32> &buff);
+int _pref_p1qX_encoder(uint64 val, int q, alt::byteArray &buff);
+int _pref_p1qX_encoder(uint32 val, int q, alt::byteArray &buff);
+int _pref_p1qX_encoder(uint32 val, int q, alt::array<uint32> &buff);
 
-int _pref_p1qX_decoder(uint32 *val, int q, ATArray<uint32> &buff);
+int _pref_p1qX_decoder(uint32 *val, int q, alt::array<uint32> &buff);
 int _pref_p1q7_decoder(uint32 *val, uint8 *buff, int size);
 int _pref_p1q7_decoder(uint64 *val, uint8 *buff, int size);
 
 //универсальная реализация
 int _pref_pqs_size(unsigned int val, int p, int q, int s);
-void _pref_pqs_encoder(unsigned int val, AAutoBitSpace &buff, int p, int q, int s);
-unsigned int _pref_pqs_decoder(AAutoBitSpace &buff, int p, int q, int s);
-unsigned int _pref_pqs_decoder(ABitSpace &buff, int p, int q, int s);
+void _pref_pqs_encoder(unsigned int val, alt::bitSpace<uint32> &buff, int p, int q, int s);
+unsigned int _pref_pqs_decoder(alt::bitSpace<uint32> &buff, int p, int q, int s);
 
 #endif

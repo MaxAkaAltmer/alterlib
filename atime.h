@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2018 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -29,41 +29,46 @@ SOFTWARE.
 
 #include "astring.h"
 
-class ATime
-{
-public:
-    ATime(uint64 us=0)
+namespace alt {
+
+    class time
     {
-        stamp=us;
-    }
+    public:
+        time(uint64 us=0)
+        {
+            stamp=us;
+        }
 
-    ATime(const ATime &val){*this=val;}
+        time(const time &val){*this=val;}
 
-    ATime& operator=(const ATime &val)
-    {
-        stamp=val.stamp;
-        return *this;
-    }
+        time& operator=(const time &val)
+        {
+            stamp=val.stamp;
+            return *this;
+        }
 
-    uint64 uSeconds(){return stamp;}
+        uint64 uSeconds(){return stamp;}
 
-    void fragmentation(int *year=NULL,
-            int *month=NULL,
-            int *day=NULL,
-            int *wday=NULL,
-            int *hour=NULL,
-            int *min=NULL,
-            int *sec=NULL,
-            int *usec=NULL);
+        void fragmentation(int *year=NULL,
+                int *month=NULL,
+                int *day=NULL,
+                int *wday=NULL,
+                int *hour=NULL,
+                int *min=NULL,
+                int *sec=NULL,
+                int *usec=NULL);
 
-    static ATime current();
-    static uint64 uStamp();
+        static time current();
+        static uint64 uStamp();
+        static uint64 systemTick();
 
-    AString toString();
+        string toString();
 
-private:
+    private:
 
-    uint64 stamp;
-};
+        uint64 stamp;
+    };
+
+}
 
 #endif // ATIME_H

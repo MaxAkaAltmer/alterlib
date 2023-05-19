@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2018 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -31,44 +31,27 @@ SOFTWARE.
 #include "astring_utf.h"
 #include "astring_latin.h"
 
-bool isspace(char val)
+using namespace alt;
+
+static bool isspace(char val)
 {
     if(val=='\t' || val=='\n' || val=='\v' || val=='\f' || val=='\r' || val==' ')return true;
     return false;
 }
 
-
-static ATHash<AString,AString> at_diction;
-
-AString at(AString text)
+alt::hash<uint32,uint32> gen_ttab_to_lower()
 {
-    if(at_diction[text].isEmpty())return text;
-    return at_diction[text];
-}
-
-ATHash<AString,AString> aGetTranslation()
-{
-    return at_diction;
-}
-
-void aApplayTranslation(ATHash<AString,AString> transl)
-{
-    at_diction.insert(transl);
-}
-
-ATHash<uint32,uint32> gen_ttab_to_lower()
-{
-    ATHash<uint32,uint32> rv;
+    alt::hash<uint32,uint32> rv;
     for(uint i=0;i<sizeof(as_upper_to_lower)/(sizeof(as_upper_to_lower[0])*2);i++)
         rv.insert(as_upper_to_lower[i*2],as_upper_to_lower[i*2+1]);
     return rv;
 }
 
-const static ATHash<uint32,uint32> ttab_to_lower=gen_ttab_to_lower();
+const static alt::hash<uint32,uint32> ttab_to_lower = gen_ttab_to_lower();
 
-AString AString::toLower() const
+string string::toLower() const
 {
-    AString rv;
+    string rv;
     for(int i=0;i<size();)
     {
         uint32 val;
@@ -80,7 +63,7 @@ AString AString::toLower() const
     return rv;
 }
 
-AString AString::trimmed()
+string string::trimmed()
 {
     int i;
     for(i=0;i<data->size;i++)
@@ -92,13 +75,13 @@ AString AString::trimmed()
     {
         if(!isspace(data->buff[n]))break;
     }
-    if(n<i)return AString();
+    if(n<i)return string();
     return mid(i,n-i+1);
 }
 
-AString AString::spec2space()
+string string::spec2space()
 {
-    AString rv=*this;
+    string rv=*this;
     for(int i=0;i<rv.size();i++)
     {
         if(uint8(rv[i])<0x20)rv[i]=' ';
@@ -106,7 +89,7 @@ AString AString::spec2space()
     return rv;
 }
 
-AString AString::simplified()
+string string::simplified()
 {
     int i;
     for(i=0;i<data->size;i++)
@@ -118,9 +101,9 @@ AString AString::simplified()
     {
         if(!isspace(data->buff[n]))break;
     }
-    if(n<=i)return AString();
+    if(n<=i)return string();
 
-    AString rv(n-i+1,true);
+    string rv(n-i+1,true);
     bool flag=false;
     for(int j=i;j<n+1;j++)
     {
@@ -137,9 +120,9 @@ AString AString::simplified()
     return rv;
 }
 
-AString AString::fromLatin(const char *str)
+string string::fromLatin(const char *str)
 {
-    AString rv;
+    string rv;
     int i=0;
     while(str[i])
     {
@@ -149,11 +132,11 @@ AString AString::fromLatin(const char *str)
     return rv;
 }
 
-AStringInternal AString::empty={0,0,0,{0}};
+string::Internal string::empty={0,0,0,{0}};
 
-AString& AString::replace(const AString &before, const AString &after)
+string& string::replace(const string &before, const string &after)
 {
-    AString tmp;
+    string tmp;
     tmp.reserve(data->size);
 
     for(int i=0;i<data->size;i++)
@@ -184,7 +167,7 @@ AString& AString::replace(const AString &before, const AString &after)
     return *this;
 }
 
-AString& AString::ReplaceBack(const AString &str, int pos)
+string& string::replaceBack(const string &str, int pos)
 {
  int i,n,j;
 
@@ -202,7 +185,7 @@ AString& AString::ReplaceBack(const AString &str, int pos)
     return *this;
 }
 
-AString& AString::reverse(int start, int end)
+string& string::reverse(int start, int end)
 {
  char tmp;
  int i,n;
@@ -224,7 +207,7 @@ AString& AString::reverse(int start, int end)
 }
 
 
-AString& AString::ReplaceChar(char seek, char val)
+string& string::replaceChar(char seek, char val)
 {
  int i;
 
@@ -236,7 +219,7 @@ AString& AString::ReplaceChar(char seek, char val)
     return *this;
 }
 
-AString& AString::ReplaceGroup(char seek, char val, int len)
+string& string::replaceGroup(char seek, char val, int len)
 {
     cloneInternal();
 
@@ -249,7 +232,7 @@ AString& AString::ReplaceGroup(char seek, char val, int len)
     return *this;
 }
 
-AString& AString::KillCharAtBegining(char val)
+string& string::killCharAtBegining(char val)
 {
  int i,pnt;
  bool beg=true;
@@ -265,7 +248,7 @@ AString& AString::KillCharAtBegining(char val)
     return *this;
 }
 
-AString& AString::KillChar(char val)
+string& string::killChar(char val)
 {
  int i,pnt;
     pnt=0;
@@ -281,7 +264,7 @@ AString& AString::KillChar(char val)
     return *this;
 }
 
-int AString::indexOf(const AString &val)
+int string::indexOf(const string &val)
 {
     if(val.isEmpty() || !data || data->size<val.data->size)return -1;
 
@@ -296,7 +279,7 @@ int AString::indexOf(const AString &val)
     {
         if(hash==shablon)
         {
-            if(!_ats_memcmp(&data->buff[i],val.data->buff,val.data->size))
+            if(!alt::utils::memcmp(&data->buff[i],val.data->buff,val.data->size))
             {
                 return i;
             }
@@ -307,7 +290,7 @@ int AString::indexOf(const AString &val)
     return -1;
 }
 
-int AString::countOf(char val)
+int string::countOf(char val)
 {
     int rv=0;
     for(int i=0;i<data->size;i++)
@@ -315,7 +298,7 @@ int AString::countOf(char val)
     return rv;
 }
 
-int AString::indexOf(char val, int from) const
+int string::indexOf(char val, int from) const
 {
     if(from<0)from=0;
     while(from<data->size)
@@ -327,7 +310,7 @@ int AString::indexOf(char val, int from) const
 }
 
 
-int AString::findOneOfChar(int from, char *val) const
+int string::findOneOfChar(int from, char *val) const
 {
  int j;
     if(from<0)from=0;
@@ -345,9 +328,9 @@ int AString::findOneOfChar(int from, char *val) const
 }
 
 
-AString AString::cutPrefix(char sep)
+string string::cutPrefix(char sep)
 {
- AString retval;
+ string retval;
  int i;
     for(i=0;i<data->size;i++)
     {
@@ -359,10 +342,10 @@ AString AString::cutPrefix(char sep)
 }
 
 
-AString AString::cutPrefix(const char *seps)
+string string::cutPrefix(const char *seps)
 {
- AString retval;
- int i,j,n=_ats_strlen(seps);
+ string retval;
+ int i,j,n=alt::utils::strlen(seps);
         for(i=0;i<data->size;i++)
         {
                 for(j=0;j<n;j++)if(data->buff[i]==seps[j])break;
@@ -374,20 +357,20 @@ AString AString::cutPrefix(const char *seps)
 }
 
 
-int AString::findString(int from, char *str) const
+int string::findString(int from, char *str) const
 {
- int len=_ats_strlen(str);
+ int len=alt::utils::strlen(str);
         if(from<0)from=0;
         while(data->size>=from+len)
         {
-                if(!_ats_memcmp(&data->buff[from],str,len))return from;
+                if(!alt::utils::memcmp(&data->buff[from],str,len))return from;
                 from++;
         }
         return -1;
 }
 
 
-int AString::findBackChar(int from, char val) const
+int string::findBackChar(int from, char val) const
 {
         if(from>=data->size)from=data->size-1;
         while(from>=0)
@@ -399,22 +382,22 @@ int AString::findBackChar(int from, char val) const
 }
 
 
-AString AString::mid(int from, int size) const
+string string::mid(int from, int size) const
 {
- AString retval;
+ string retval;
 
     if(from<0){size+=from;from=0;}
     if(from>=data->size || size<=0)return retval;
     if(from+size>data->size)size=data->size-from;
 
     retval.resize(size);
-    _ats_memcpy(retval.data->buff,&data->buff[from],size);
+    alt::utils::memcpy(retval.data->buff,&data->buff[from],size);
     return retval;
 }
 
 
 
-AString& AString::operator+=(const AString &Str)
+string& string::operator+=(const string &Str)
 {
     int nsiz=Str.data->size+data->size;;
 
@@ -422,51 +405,51 @@ AString& AString::operator+=(const AString &Str)
 
     if(data->alloc>=nsiz && data->refcount<2)
     {
-        _ats_memcpy(&data->buff[data->size],Str.data->buff,Str.data->size);
+        alt::utils::memcpy(&data->buff[data->size],Str.data->buff,Str.data->size);
         data->size=nsiz;
         data->buff[nsiz]=0;
         return *this;
     }
 
-    AStringInternal *tmp=newInternal(nsiz);
-    if(data->size)_ats_memcpy(tmp->buff,data->buff,data->size);
-    _ats_memcpy(&tmp->buff[data->size],Str.data->buff,Str.data->size);
+    Internal *tmp=newInternal(nsiz);
+    if(data->size)alt::utils::memcpy(tmp->buff,data->buff,data->size);
+    alt::utils::memcpy(&tmp->buff[data->size],Str.data->buff,Str.data->size);
     deleteInternal();
     data=tmp;
     return *this;
 }
 
 
-AString& AString::operator+=(const char *str)
+string& string::operator+=(const char *str)
 {
-    int size=_ats_strlen(str);
+    int size=alt::utils::strlen(str);
 
     if(!size)return *this;
     int nsiz=size+data->size;
 
     if(data->alloc>=nsiz && data->refcount<2)
     {
-        _ats_memcpy(&data->buff[data->size],str,size);
+        alt::utils::memcpy(&data->buff[data->size],str,size);
         data->size=nsiz;
         data->buff[nsiz]=0;
         return *this;
     }
 
-    AStringInternal *tmp=newInternal(nsiz);
-    if(data->size)_ats_memcpy(tmp->buff,data->buff,data->size);
-    _ats_memcpy(&tmp->buff[data->size],str,size);
+    Internal *tmp=newInternal(nsiz);
+    if(data->size)alt::utils::memcpy(tmp->buff,data->buff,data->size);
+    alt::utils::memcpy(&tmp->buff[data->size],str,size);
     deleteInternal();
     data=tmp;
     return *this;
 }
 
 
-AString& AString::operator=(const AString &Str)
+string& string::operator=(const string &Str)
 {
     if(data==Str.data)return *this;
     if((data->refcount<2) && (data->alloc >= Str.data->size) )
     {
-        _ats_memcpy(data->buff,Str.data->buff,Str.data->size+1);
+        alt::utils::memcpy(data->buff,Str.data->buff,Str.data->size+1);
         data->size=Str.data->size;
         return *this;
     }
@@ -477,67 +460,67 @@ AString& AString::operator=(const AString &Str)
 }
 
 
-AString& AString::operator=(const char *str)
+string& string::operator=(const char *str)
 {
-    int size=_ats_strlen(str);
+    int size=alt::utils::strlen(str);
 
     if(data->refcount<2 && data->alloc>=size)
     {
-        _ats_memcpy(data->buff,str,size+1);
+        alt::utils::memcpy(data->buff,str,size+1);
         data->size=size;
         return *this;
     }
 
     deleteInternal();
     data=newInternal(size);
-    if(size)_ats_memcpy(data->buff,str,size);
+    if(size)alt::utils::memcpy(data->buff,str,size);
     return *this;
 }
 
 
-AString operator+(const char *str, const AString &Str)
+string alt::operator+(const char *str, const string &Str)
 {
-    int size=_ats_strlen(str);
-    int nsiz=size+Str.data->size;
+    int size=alt::utils::strlen(str);
+    int nsiz=size+Str.size();
 
     if(!size) return Str;
-    if(!Str.size()) return AString(str);
+    if(!Str.size()) return string(str);
 
-    AString tmp(nsiz,false);
-    _ats_memcpy(tmp.data->buff,str,size);
-    _ats_memcpy(&tmp.data->buff[size],Str.data->buff,Str.data->size);
+    string tmp(nsiz,false);
+    alt::utils::memcpy(tmp(),str,size);
+    alt::utils::memcpy(&tmp()[size],Str(),Str.size());
     return tmp;
 }
 
 
-AString AString::operator+(const AString &Str)  const
+string string::operator+(const string &Str)  const
 {
     if(!Str.data->size)return *this;
     if(!data->size)return Str;
     int nsiz=Str.data->size+data->size;
 
-    AString tmp(nsiz,false);
-    _ats_memcpy(tmp.data->buff,data->buff,data->size);
-    _ats_memcpy(&tmp.data->buff[data->size],Str.data->buff,Str.data->size);
+    string tmp(nsiz,false);
+    alt::utils::memcpy(tmp.data->buff,data->buff,data->size);
+    alt::utils::memcpy(&tmp.data->buff[data->size],Str.data->buff,Str.data->size);
     return tmp;
 }
 
 
-AString AString::operator+(const char *str) const
+string string::operator+(const char *str) const
 {
-    int size=_ats_strlen(str);
+    int size=alt::utils::strlen(str);
     if(!size)return *this;
-    if(!data->size)return AString(str);
+    if(!data->size)return string(str);
     int nsiz=size+data->size;
 
-    AString tmp(nsiz,false);
-    _ats_memcpy(tmp.data->buff,data->buff,data->size);
-    _ats_memcpy(&tmp.data->buff[data->size],str,size);
+    string tmp(nsiz,false);
+    alt::utils::memcpy(tmp.data->buff,data->buff,data->size);
+    alt::utils::memcpy(&tmp.data->buff[data->size],str,size);
     return tmp;
 }
 
 
-AString& AString::Fill(char sym, int from, int num)
+string& string::Fill(char sym, int from, int num)
 {
     cloneInternal();
 
@@ -552,11 +535,11 @@ AString& AString::Fill(char sym, int from, int num)
     return *this;
 }
 
-AString AString::print(const char *format, ... )
+string string::print(const char *format, ... )
 {
     va_list argptr;
     int cnt;
-    AString rv;
+    string rv;
 
     va_start(argptr, format);
     cnt=vsnprintf(NULL, 0, format, argptr);
@@ -570,9 +553,9 @@ AString AString::print(const char *format, ... )
     return rv;
 }
 
-AString AString::fromUnicode(wchar_t *str, int size)
+string string::fromUnicode(const wchar_t *str, int size)
 {
-    AString rv;
+    string rv;
     while(size && (*str))
     {
         if(sizeof(wchar_t)<sizeof(uint32))
@@ -589,14 +572,14 @@ AString AString::fromUnicode(wchar_t *str, int size)
 //------------------------------------------------------------------------------
 
 
-AString AString::fromFix(const char* fix, int max_size)
+string string::fromFix(const char* fix, int max_size)
 {
- AString retval;
+ string retval;
  char *pnt;
 
     retval.resize(max_size);
     pnt=retval();
-    _ats_memcpy(pnt,fix,max_size);
+    alt::utils::memcpy(pnt,fix,max_size);
     retval.globCorrection();
     return retval;
 }

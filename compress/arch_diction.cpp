@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2018 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -27,7 +27,7 @@ SOFTWARE.
 #include "arch_diction.h"
 #include "arch_prefix.h"
 
-void _arch_diction_encode(AData &rv, const uint8 *buff, int size, int wsize)
+void _arch_diction_encode(alt::byteArray &rv, const uint8 *buff, int size, int wsize)
 {
     rv.clear();
 
@@ -103,7 +103,7 @@ void _arch_diction_encode(AData &rv, const uint8 *buff, int size, int wsize)
 }
 
 
-void _arch_diction_decode(AData &rv, uint8 *buff, int size, int32 predict_size)
+void _arch_diction_decode(alt::byteArray &rv, uint8 *buff, int size, int32 predict_size)
 {
     rv.clear();
 

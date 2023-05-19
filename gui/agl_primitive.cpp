@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2018 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -31,8 +31,11 @@ AGLPrimitive::AGLPrimitive()
 
 }
 
-void AGLPrimitive::drawBox(ATRect<real32> box, AColor col)
+void AGLPrimitive::drawBox(alt::rect<real32> box, alt::colorRGBA col, real32 border)
 {
+    if(border>((box.width-1.0)/2.0)) border=(box.width-1.0)/2.0;
+    if(border>((box.height-1.0)/2.0)) border=(box.height-1.0)/2.0;
+
     if(col()) glColor4f(col.rf(), col.gf(), col.bf(), col.af());
     else glColor4f(1.0, 1.0, 1.0, 1.0);
 

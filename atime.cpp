@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2020 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -29,17 +29,35 @@ SOFTWARE.
 #include <time.h>
 #include <chrono>
 
-ATime ATime::current()
+using namespace alt;
+
+alt::time time::current()
 {
-    return ATime(uStamp());
+    return time(uStamp());
 }
 
-uint64 ATime::uStamp()
+#if !defined(linux) && !defined(__APPLE__)
+#include <intrin.h>
+
+uint64 time::systemTick()
+{
+    return __rdtsc();
+}
+#else
+uint64 time::systemTick()
+{
+    uint64 d;
+    __asm__ __volatile__ ("rdtsc" : "=A" (d) );
+    return d;
+}
+#endif
+
+uint64 time::uStamp()
 {
     return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
 }
 
-void ATime::fragmentation(
+void time::fragmentation(
         int *year,
         int *month,
         int *day,
@@ -62,16 +80,16 @@ void ATime::fragmentation(
     if(usec)*usec=stamp%1000000;
 }
 
-AString ATime::toString()
+string time::toString()
 {
     time_t t=stamp/1000000;
     struct tm *val=localtime(&t);
 
-    return AString::fromIntFormat(val->tm_mday,2)+"."+
-            AString::fromIntFormat(val->tm_mon+1,2)+"."+
-            AString::fromIntFormat(val->tm_year+1900,4)+" "+
-            AString::fromIntFormat(val->tm_hour,2)+":"+
-            AString::fromIntFormat(val->tm_min,2)+":"+
-            AString::fromIntFormat(val->tm_sec,2)+"."+
-            AString::fromIntFormat((stamp/1000)%1000,3);
+    return string::fromIntFormat(val->tm_mday,2)+"."+
+            string::fromIntFormat(val->tm_mon+1,2)+"."+
+            string::fromIntFormat(val->tm_year+1900,4)+" "+
+            string::fromIntFormat(val->tm_hour,2)+":"+
+            string::fromIntFormat(val->tm_min,2)+":"+
+            string::fromIntFormat(val->tm_sec,2)+"."+
+            string::fromIntFormat((stamp/1000)%1000,3);
 }

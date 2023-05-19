@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2020 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,7 @@ SOFTWARE.
 #if defined(_MSC_VER)
     #include "external/dirent.h"
 #else
+    #include <unistd.h>
     #include <dirent.h>
 #endif
 
@@ -54,54 +55,249 @@ SOFTWARE.
     #define ftruncate64 _chsize_s
 #endif
 
+using namespace alt;
 
-bool aDirIsWriteble(AString path)
+void pathParcer::setPath(const string &path)
+{
+    char sep=_defSep;
+    for(int i=0;i<path.size();i++)
+    {
+        if(path[i]=='/' || path[i]=='\\')
+        {
+            sep=path[i];
+            break;
+        }
+    }
+
+    array<string> list=split(path);
+    array<string> rez;
+    if(list.size())
+    {
+        rez.append(list[0]);
+    }
+    for(int i=1;i<list.size();i++)
+    {
+        if(list[i]=="..")
+        {
+            if(rez.size() && rez.last()!="..")
+            {
+                rez.pop();
+                continue;
+            }
+            else
+            {
+                rez.append(list[i]);
+            }
+        }
+        else if(list[i]==".")
+        {
+            if(rez.size())
+            {
+                continue;
+            }
+            else
+            {
+                rez.append(list[i]);
+            }
+        }
+        else if(list[i].isEmpty())
+        {
+            continue;
+        }
+        else
+        {
+            rez.append(list[i]);
+        }
+    }
+    _path=string::join(rez,sep);
+}
+
+array<string> pathParcer::split(const string &path, bool scip_empty)
+{
+    array<string> rv;
+    string tmp;
+    for(int i=0;i<path.size();i++)
+    {
+        if(path[i]=='/' || path[i]=='\\')
+        {
+            if(!scip_empty || !tmp.isEmpty())
+                rv.append(tmp);
+            tmp.clear();
+        }
+        else
+        {
+            tmp.append(path[i]);
+        }
+    }
+    if(!tmp.isEmpty())rv.append(tmp);
+    return rv;
+}
+
+string pathParcer::getExtension()
+{
+    for(int i=_path.size();i>=0;i--)
+    {
+        if(_path[i]=='/' || _path[i]=='\\')return string();
+        if(_path[i]=='.')return _path.right(i+1);
+    }
+    return string();
+}
+
+string pathParcer::getName()
+{
+    for(int i=_path.size();i>=0;i--)
+    {
+        if(_path[i]=='/' || _path[i]=='\\')return _path.right(i+1);
+    }
+    return _path;
+}
+
+string pathParcer::getBaseName()
+{
+    string tmp=getName();
+    for(int i=0;i<tmp.size();i++)
+    {
+        if(tmp[i]=='.')return tmp.left(i);
+    }
+    return tmp;
+}
+
+string pathParcer::getNameNoExt()
+{
+    string tmp=getName();
+    for(int i=tmp.size();i>=0;i--)
+    {
+        if(tmp[i]=='.')return tmp.left(i);
+    }
+    return tmp;
+}
+
+string pathParcer::getDirectory()
+{
+    for(int i=_path.size();i>=0;i--)
+    {
+        if(_path[i]=='/' || _path[i]=='\\')return _path.left(i);
+    }
+    return string();
+}
+
+string pathParcer::createAbsolutePath(string to, bool this_is_dir)
+{
+    array<string> curr = split(_path,true);
+    array<string> dest = split(to,true);
+    int ind=0;
+
+    if(to[0]!='.')
+        return to;
+
+    if(!this_is_dir)
+        curr.pop();
+
+    curr.append(dest);
+
+    for(int i=0; i<curr.size(); i++)
+    {
+        if(curr[i]==".")
+        {
+            curr.cut(i);
+            i++;
+        }
+        else if(curr[i]=="..")
+        {
+            if(!i) return "";
+            curr.cut(i-1,2);
+            i-=2;
+        }
+    }
+    return string::join(curr,_defSep);
+}
+
+string pathParcer::createRelativePath(string to, bool this_is_dir)
+{
+    array<string> curr = split(_path,true);
+    array<string> dest = split(to,true);
+    int ind=0;
+
+    if(!curr.size())
+        return to;
+
+    if(!this_is_dir)
+        curr.pop();
+
+    for(;ind<curr.size() && ind<dest.size();ind++)
+    {
+        if(curr[ind]!=dest[ind])
+            break;
+    }
+
+    if(ind==0)
+        return to;
+
+    string rv = ".";
+    rv.append(_defSep);
+    if(ind < curr.size())
+    {
+        rv.clear();
+        for(int i = ind; i<curr.size(); i++)
+        {
+            rv += "..";
+            rv.append(_defSep);
+        }
+    }
+    for(int i = ind; i<dest.size(); i++)
+    {
+        rv+=dest[i];
+    }
+    return rv;
+}
+
+bool dirIsWriteble(string path)
 {
     if(path.last()!='/')path+="/";
     int testInd=0;
-    AString fname=path+"test.txt";
-    while(AFile::exists(fname))
+    string fname=path+"test.txt";
+    while(file::exists(fname))
     {
-        fname=path+"test"+AString::fromInt(testInd++)+".txt";
+        fname=path+"test"+string::fromInt(testInd++)+".txt";
     }
-    AFile hand(fname);
-    if(hand.open(AFile::OWriteOnly))
+    file hand(fname);
+    if(hand.open(file::OWriteOnly))
     {
         if(hand.write(fname(),fname.size())==fname.size())
         {
             hand.close();
-            if(hand.open(AFile::OReadOnly))
+            if(hand.open(file::OReadOnly))
             {
                 if(hand.readText()==fname)
                 {
                     hand.close();
-                    AFile::remove(fname);
+                    file::remove(fname);
                     return true;
                 }
             }
         }
         hand.close();
-        AFile::remove(fname);
+        file::remove(fname);
     }
     return false;
 }
 
-ATArray<AString> aDirEntryList(const AString &path, ATSet<AString> extFilter, int type)
+array<string> dirEntryList(const string &path, alt::set<string> extFilter, int type)
 {
-    ATArray<AString> rv;
+    array<string> rv;
 #if !defined(linux) && !defined(__APPLE__)
-    ATArray<wchar_t> upath=path.toUnicode();
+    array<wchar_t> upath=path.toUnicode();
     _WDIR *dir;
     struct _wdirent *drnt;
     dir = _wopendir(upath());
     while (dir && (drnt = _wreaddir(dir)) != NULL)
     {
-        AString node=AString::fromUnicode(drnt->d_name);
+        string node=string::fromUnicode(drnt->d_name);
         if(node=="." || node=="..")continue;
         if(type)
         {
             struct stat _Stat;
-            ATArray<wchar_t> sub_name=(path+"/"+node).toUnicode();
+            array<wchar_t> sub_name=(path+"/"+node).toUnicode();
             wstat(sub_name(),&_Stat);
             if(type<0 && S_ISREG(_Stat.st_mode))continue;
             if(type>0 && !S_ISREG(_Stat.st_mode))continue;
@@ -110,7 +306,7 @@ ATArray<AString> aDirEntryList(const AString &path, ATSet<AString> extFilter, in
         {
             int ind = node.findBackChar('.');
             if(ind<0)continue;
-            AString ext=node.right(ind+1).toLower();
+            string ext=node.right(ind+1).toLower();
             if(!extFilter.contains(ext))continue;
         }
         rv.append(node);
@@ -121,7 +317,7 @@ ATArray<AString> aDirEntryList(const AString &path, ATSet<AString> extFilter, in
     dir = opendir(path());
     while (dir && (drnt = readdir(dir)) != NULL)
     {
-        AString node(drnt->d_name);
+        string node(drnt->d_name);
         if(node=="." || node=="..")continue;
         if(type)
         {
@@ -132,7 +328,7 @@ ATArray<AString> aDirEntryList(const AString &path, ATSet<AString> extFilter, in
         {
             int ind = node.findBackChar('.');
             if(ind<0)continue;
-            AString ext=node.right(ind+1).toLower();
+            string ext=node.right(ind+1).toLower();
             if(!extFilter.contains(ext))continue;
         }
         rv.append(node);
@@ -141,40 +337,40 @@ ATArray<AString> aDirEntryList(const AString &path, ATSet<AString> extFilter, in
     return rv;
 }
 
-AFile::AFile()
+file::file()
 {
     handler = -1;
 }
 
-AFile::AFile(const AString &name)
+file::file(const string &name)
 {
     fname = name;
     handler = -1;
 }
 
-AFile::~AFile()
+file::~file()
 {
     close();
 }
 
-bool AFile::setFileName(const AString &name)
+bool file::setFileName(const string &name)
 {
     if(open_flags)return false;
     fname=name;
     return true;
 }
 
-void AFile::close()
+void file::close()
 {
     if(handler>=0)
     {
         ::close(handler);
         handler = -1;
     }
-    AFileProto::close();
+    fileProto::close();
 }
 
-bool AFile::open(int flags)
+bool file::open(int flags)
 {
     if(fname.isEmpty())return false;
     if(!flags)return false;
@@ -193,12 +389,23 @@ bool AFile::open(int flags)
     if(flags&OTruncate)oflags|=O_TRUNC;
 
 #if !defined(linux) && !defined(__APPLE__)
-    ATArray<wchar_t> wname=fname.toUnicode();
+    array<wchar_t> wname=fname.toUnicode();
     int hand=::_wopen(wname(),oflags);
 
     if(hand<0 && (flags&OWriteOnly))
     {
+#ifdef _MSC_VER
+        int pmode = 0;
+        if((flags&OReadOnly) && (flags&OWriteOnly))
+            pmode|=_S_IREAD|_S_IWRITE;
+        else if(flags&OReadOnly)
+            return false;
+        else if(flags&OWriteOnly)
+            pmode|=_S_IWRITE;
+        hand=::_wcreat(wname(),pmode);
+#else
         hand=::_wcreat(wname(),00666);
+#endif
         if(hand>=0)
         {
             ::close(hand);
@@ -227,7 +434,7 @@ bool AFile::open(int flags)
     return true;
 }
 
-int64 AFile::size() const
+int64 file::size() const
 {
     if(handler<0)return -1;
 
@@ -246,7 +453,7 @@ int64 AFile::size() const
     return rv;
 }
 
-bool AFile::seek(int64 pos)
+bool file::seek(int64 pos)
 {
     if(handler<0)return false;
 #if !defined(__APPLE__)
@@ -256,7 +463,7 @@ bool AFile::seek(int64 pos)
 #endif
 }
 
-int64 AFile::pos() const
+int64 file::pos() const
 {
     if(handler<0)return -1;
 #if !defined(__APPLE__)
@@ -266,7 +473,7 @@ int64 AFile::pos() const
 #endif
 }
 
-int AFile::read_hand(void *buff, int size)
+int file::read_hand(void *buff, int size)
 {
     if(handler<0)return -1;
     if(size<=0)return 0;
@@ -275,14 +482,14 @@ int AFile::read_hand(void *buff, int size)
     return rv;
 }
 
-int AFile::write_hand(const void *buff, int size)
+int file::write_hand(const void *buff, int size)
 {
     if(handler<0)return -1;
     if(size<=0)return 0;
     return ::write(handler,buff,size);
 }
 
-bool AFile::resize(int64 size)
+bool file::resize(int64 size)
 {
     if(handler<0)return false;
 #if !defined(__APPLE__)
@@ -293,16 +500,16 @@ bool AFile::resize(int64 size)
     return true;
 }
 
-bool AFile::isSequential() const
+bool file::isSequential() const
 {
     return false;
 }
 
-bool AFile::exists(AString fname)
+bool file::exists(string fname)
 {
     if(fname.isEmpty())return false;
 #if !defined(linux) && !defined(__APPLE__)
-    ATArray<wchar_t> wname=fname.toUnicode();
+    array<wchar_t> wname=fname.toUnicode();
     if(_waccess(wname(),F_OK)==-1)return false;
 #else
     if(access(fname(),F_OK)==-1)return false;
@@ -311,11 +518,11 @@ bool AFile::exists(AString fname)
 }
 
 
-bool AFile::remove(AString fname)
+bool file::remove(string fname)
 {
     if(fname.isEmpty())return false;
 #if !defined(linux) && !defined(__APPLE__)
-    ATArray<wchar_t> wname=fname.toUnicode();
+    array<wchar_t> wname=fname.toUnicode();
     if(_wunlink(wname())==-1)return false;
 #else
     if(unlink(fname())==-1)return false;
@@ -323,11 +530,11 @@ bool AFile::remove(AString fname)
     return true;
 }
 
-bool AFile::rename(AString before, AString after)
+bool file::rename(string before, string after)
 {
 #if !defined(linux) && !defined(__APPLE__)
-    ATArray<wchar_t> bname=before.toUnicode();
-    ATArray<wchar_t> aname=after.toUnicode();
+    array<wchar_t> bname=before.toUnicode();
+    array<wchar_t> aname=after.toUnicode();
     if(!(_wrename(bname(),aname())))return true;
 #else
     if(!(::rename(before(),after())))return true;
@@ -335,24 +542,24 @@ bool AFile::rename(AString before, AString after)
     return false;
 }
 
-ATime AFile::changeTime(AString fname)
+alt::time file::changeTime(string fname)
 {
     struct stat t_stat;
 #if !defined(linux) && !defined(__APPLE__)
-    ATArray<wchar_t> wname=fname.toUnicode();
+    array<wchar_t> wname=fname.toUnicode();
     wstat(wname(), &t_stat);
 #else
     stat(fname(), &t_stat);
 #endif
     if(sizeof(t_stat.st_mtime)==8)
-        return ATime(((uint64)t_stat.st_mtime)*(uint64)1000000);
-    return ATime(((uint32)t_stat.st_mtime)*(uint64)1000000);
+        return alt::time(((uint64)t_stat.st_mtime)*(uint64)1000000);
+    return alt::time(((uint32)t_stat.st_mtime)*(uint64)1000000);
 }
 
-bool AFile::replicate(AString src, AString dst)
+bool file::replicate(string src, string dst)
 {
-    AFile hsrc(src);
-    AFile hdst(dst);
+    file hsrc(src);
+    file hdst(dst);
     if(!hsrc.open())return false;
     if(!hdst.create())return false;
 

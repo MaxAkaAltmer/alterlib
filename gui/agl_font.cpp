@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2018 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -27,11 +27,11 @@ SOFTWARE.
 #include "agl_font.h"
 #include <math.h>
 
-AGLFont::AGLFont(AString font, int block_limit)
+AGLFont::AGLFont(alt::string font, int block_limit)
 {
     //дефолтные настройки
     blocklimit=block_limit;
-    curr_color=AColor(255,255,255,255);
+    curr_color=alt::colorRGBA(255,255,255,255);
     curr_font=font;
 }
 AGLFont::AGLFont()
@@ -45,7 +45,7 @@ AGLFont::AGLFont()
 }
 
 #ifdef QT_WIDGETS_LIB
-AImage AGLFont::createGlyph(charx sym)
+alt::image AGLFont::createGlyph(charx sym)
 {
     //шрифт
     QFont font;
@@ -56,7 +56,7 @@ AImage AGLFont::createGlyph(charx sym)
     real32 cw=fm.width(val);
     real32 ch=fm.height();
 
-    if(cw<=0 || ch<=0)return AImage();
+    if(cw<=0 || ch<=0)return alt::image();
 
     //рендер
     QPicture gly;
@@ -78,7 +78,7 @@ AImage AGLFont::createGlyph(charx sym)
     p.setRenderHint(QPainter::SmoothPixmapTransform, true);
     gly.play(&p);
 
-    return AImage(pix.width(),pix.height(),pix.bits());
+    return alt::image(pix.width(),pix.height(),pix.bits());
 }
 
 real32 AGLFont::getSpacing()
@@ -96,9 +96,9 @@ bool AGLFont::spacingAbs()
 }
 #endif
 
-vec2d<real32> AGLFont::printSize(const AString &val, int *lineCount)
+alt::vec2d<real32> AGLFont::printSize(const alt::string &val, int *lineCount)
 {
-    vec2d<real32> siz(0,0);
+    alt::vec2d<real32> siz(0,0);
     if(val.isEmpty())return siz;
 
     uint32 uval=0;
@@ -163,21 +163,21 @@ vec2d<real32> AGLFont::printSize(const AString &val, int *lineCount)
     return siz;
 }
 
-void AGLFont::printInBox(const AString &val, const AQuad<vec3d<real> > &box, AColor bg, int flags, real32 txscale)
+void AGLFont::printInBox(const alt::string &val, const alt::quad3d<real > &box, alt::colorRGBA bg, int flags, real32 txscale)
 {
     if(val.isEmpty())return;
     int count;
-    vec2d<real32> size=printSize(val,&count)*txscale;
+    alt::vec2d<real32> size=printSize(val,&count)*txscale;
 
-    ATArray<AString> lines=val.split('\n');
-    ATArray<bool> format;
+    alt::array<alt::string> lines=val.split('\n');
+    alt::array<bool> format;
     format.resize(lines.size()).fill(false);
 
-    vec3d<real> midUp=(box.leftUp()+box.rightUp())/2.0;
-    vec3d<real> midDown=(box.leftDown()+box.rightDown())/2.0;
+    alt::vec3d<real> midUp=(box.leftUp()+box.rightUp())/2.0;
+    alt::vec3d<real> midDown=(box.leftDown()+box.rightDown())/2.0;
 
-    vec3d<real> midLeft=(box.leftUp()+box.leftDown())/2.0;
-    vec3d<real> midRight=(box.rightUp()+box.rightDown())/2.0;
+    alt::vec3d<real> midLeft=(box.leftUp()+box.leftDown())/2.0;
+    alt::vec3d<real> midRight=(box.rightUp()+box.rightDown())/2.0;
 
     real h=midUp.Distance(midDown);
     real w=midLeft.Distance(midRight);
@@ -200,20 +200,20 @@ void AGLFont::printInBox(const AString &val, const AQuad<vec3d<real> > &box, ACo
             limit=w/size.x;
         }
 
-        ATArray<AString> new_lines;
+        alt::array<alt::string> new_lines;
         for(int i=0;i<lines.size();i++)
         {
-            vec2d<real32> lsiz=printSize(lines[i])*txscale;
+            alt::vec2d<real32> lsiz=printSize(lines[i])*txscale;
             real ll=kofflim*lsiz.x/size.x;
             if(ll>limit)
             {
-                ATArray<AString> words=lines[i].split(' ',true);
-                vec2d<real32> spsiz=printSize(" ")*txscale;
+                alt::array<alt::string> words=lines[i].split(' ',true);
+                alt::vec2d<real32> spsiz=printSize(" ")*txscale;
                 real currlim=0.0;
-                AString tstr;
+                alt::string tstr;
                 for(int j=0;j<words.size();j++)
                 {
-                    vec2d<real32> wsiz=printSize(words[j])*txscale;
+                    alt::vec2d<real32> wsiz=printSize(words[j])*txscale;
                     if(!tstr.isEmpty())tstr+=" ";
                     tstr+=words[j];
                     currlim+=kofflim*(wsiz.x+spsiz.x)/(real)size.x;
@@ -239,7 +239,7 @@ void AGLFont::printInBox(const AString &val, const AQuad<vec3d<real> > &box, ACo
             }
         }
         lines=new_lines;
-        size=printSize(AString::join(lines,'\n'),&count)*txscale;
+        size=printSize(alt::string::join(lines,'\n'),&count)*txscale;
     }
 
     real hstep,hstart,hline;
@@ -307,13 +307,13 @@ void AGLFont::printInBox(const AString &val, const AQuad<vec3d<real> > &box, ACo
 
     for(int i=0;i<lines.size();i++)
     {
-        vec2d<real32> lsiz=printSize(lines[i])*txscale;
+        alt::vec2d<real32> lsiz=printSize(lines[i])*txscale;
 
-        vec3d<real> lu=(hstart+hstep*i)*(box.leftDown()-box.leftUp())+box.leftUp();
-        vec3d<real> ld=(hstart+hstep*i+hline)*(box.leftDown()-box.leftUp())+box.leftUp();
+        alt::vec3d<real> lu=(hstart+hstep*i)*(box.leftDown()-box.leftUp())+box.leftUp();
+        alt::vec3d<real> ld=(hstart+hstep*i+hline)*(box.leftDown()-box.leftUp())+box.leftUp();
 
-        vec3d<real> ru=(hstart+hstep*i)*(box.rightDown()-box.rightUp())+box.rightUp();
-        vec3d<real> rd=(hstart+hstep*i+hline)*(box.rightDown()-box.rightUp())+box.rightUp();
+        alt::vec3d<real> ru=(hstart+hstep*i)*(box.rightDown()-box.rightUp())+box.rightUp();
+        alt::vec3d<real> rd=(hstart+hstep*i+hline)*(box.rightDown()-box.rightUp())+box.rightUp();
 
         switch(flags&HOR_MASK)
         {
@@ -351,12 +351,12 @@ void AGLFont::printInBox(const AString &val, const AQuad<vec3d<real> > &box, ACo
             }
             else
             {
-                ATArray<AString> words=lines[i].split(' ',true);
-                vec2d<real32> spsiz=printSize(" ")*txscale;
+                alt::array<alt::string> words=lines[i].split(' ',true);
+                alt::vec2d<real32> spsiz=printSize(" ")*txscale;
                 real xstart=0.0,xleft=1.0-xscale*lsiz.x/size.x+xscale*spsiz.x/size.x*(words.size()-1);
                 for(int j=0;j<words.size();j++)
                 {
-                    vec2d<real32> wsiz=printSize(words[j])*txscale;
+                    alt::vec2d<real32> wsiz=printSize(words[j])*txscale;
 
                     printInQuad(words[j],
                                 lu+(ru-lu)*(xstart),
@@ -374,23 +374,23 @@ void AGLFont::printInBox(const AString &val, const AQuad<vec3d<real> > &box, ACo
 
 }
 
-vec2d<real32> AGLFont::printInWidth(const AString &val, real32 width, real32 fontSize,
-                             bool onlyCalculate, vec2d<real32> pnt, int flags)
+alt::vec2d<real32> AGLFont::printInWidth(const alt::string &val, real32 width, real32 fontSize,
+                             bool onlyCalculate, alt::vec2d<real32> pnt, int flags)
 {    
-    vec2d<real32> space_size=printSize(" ");
+    alt::vec2d<real32> space_size=printSize(" ");
     real32 scale=fontSize/space_size.y, maxwidth=0.0;
     space_size*=scale;
 
     real32 rv=0.0, tab=((flags&TF_PARAGRAF) && !(flags&TF_NOTAB))
             ?((printSize("  ")*scale).x):0.0;
 
-    if(val.isEmpty())return vec2d<real32>(0,0);
-    ATArray<AString> lines=val.split('\n');
+    if(val.isEmpty())return alt::vec2d<real32>(0,0);
+    alt::array<alt::string> lines=val.split('\n');
     for(int i=0;i<lines.size();i++)
     {        
-        ATArray<int> line_count;
-        ATArray<real32> line_size;
-        ATArray<AString> paragraf=lines[i].simplified().split(' ');
+        alt::array<int> line_count;
+        alt::array<real32> line_size;
+        alt::array<alt::string> paragraf=lines[i].simplified().split(' ');
         line_size.append(tab);
         line_count.append(0);
         for(int j=0;j<paragraf.size();j++)
@@ -440,7 +440,7 @@ vec2d<real32> AGLFont::printInWidth(const AString &val, real32 width, real32 fon
                         (flags&TF_PARAGRAF))
                     space+=(width-line_size[i])/(line_count[i]-1);
 
-                vec2d<real32> pos=pnt+vec2d<real32>(0.0,i*space_size.y+rv);
+                alt::vec2d<real32> pos=pnt+alt::vec2d<real32>(0.0,i*space_size.y+rv);
                 if(!i)pos.x+=tab;
                 if(flags&TF_CENTER)pos.x+=(width-line_size[i])/2.0;
                 for(int j=0;j<line_count[i];j++,k++)
@@ -453,15 +453,15 @@ vec2d<real32> AGLFont::printInWidth(const AString &val, real32 width, real32 fon
         rv+=line_count.size()*space_size.y;
     }
     if(maxwidth>width)maxwidth=width;
-    return vec2d<real32>(maxwidth,rv);
+    return alt::vec2d<real32>(maxwidth,rv);
 }
 
-void AGLFont::printInQuad(const AString &val,
-                 vec3d<real32> lt, vec3d<real32> rt,
-                 vec3d<real32> rd, vec3d<real32> ld, AColor bg)
+void AGLFont::printInQuad(const alt::string &val,
+                 alt::vec3d<real32> lt, alt::vec3d<real32> rt,
+                 alt::vec3d<real32> rd, alt::vec3d<real32> ld, alt::colorRGBA bg)
 {
     if(val.isEmpty())return;
-    vec2d<real32> size=printSize(val);
+    alt::vec2d<real32> size=printSize(val);
     int tind=-1;
 
     uint32 uval=0;
@@ -575,14 +575,14 @@ void AGLFont::printInQuad(const AString &val,
         real32 xk=xoff/size.x;
         real32 xkk=(xoff+cwidth)/size.x;
 
-        vec3d<real32> tmpr=(rt+(rd-rt)*yk);
-        vec3d<real32> tmpl=(lt+(ld-lt)*yk);
-        vec3d<real32> p_lt=(tmpr-tmpl)*xk+tmpl;
-        vec3d<real32> p_rt=(tmpr-tmpl)*xkk+tmpl;
+        alt::vec3d<real32> tmpr=(rt+(rd-rt)*yk);
+        alt::vec3d<real32> tmpl=(lt+(ld-lt)*yk);
+        alt::vec3d<real32> p_lt=(tmpr-tmpl)*xk+tmpl;
+        alt::vec3d<real32> p_rt=(tmpr-tmpl)*xkk+tmpl;
         tmpr=(rt+(rd-rt)*ykk);
         tmpl=(lt+(ld-lt)*ykk);
-        vec3d<real32> p_ld=(tmpr-tmpl)*xk+tmpl;
-        vec3d<real32> p_rd=(tmpr-tmpl)*xkk+tmpl;
+        alt::vec3d<real32> p_ld=(tmpr-tmpl)*xk+tmpl;
+        alt::vec3d<real32> p_rd=(tmpr-tmpl)*xkk+tmpl;
 
         coords.append(inf->x).append(inf->y);
         coords.append(inf->x+inf->w).append(inf->y);
@@ -622,7 +622,7 @@ void AGLFont::printInQuad(const AString &val,
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 }
 
-real32 AGLFont::print(const AString &val, const vec2d<real32> &pnt, real32 scale)
+real32 AGLFont::print(const alt::string &val, const alt::vec2d<real32> &pnt, real32 scale)
 {
     if(val.isEmpty())return 0.0;
     uint32 uval=0;
@@ -739,13 +739,13 @@ real32 AGLFont::print(const AString &val, const vec2d<real32> &pnt, real32 scale
 
 void AGLFont::clear()
 {
-    ATArray< ATHash<int,aglFontBlock> > fparts=fonts.values();
+    alt::array< alt::hash<int,aglFontBlock> > fparts=fonts.values();
     for(int i=0;i<fparts.size();i++)
     {
-        ATArray<aglFontBlock> blocks=fparts[i].values();
+        alt::array<aglFontBlock> blocks=fparts[i].values();
         for(int j=0;j<blocks.size();j++)
         {
-            ATArray<AGLTexture*> texs=blocks[j].textures;
+            alt::array<AGLTexture*> texs=blocks[j].textures;
             for(int k=0;k<texs.size();k++)
             {
                 delete texs[k];
@@ -765,10 +765,10 @@ void AGLFont::checkBlocksLifeCicle()
 {
     while(cache.Size()>blocklimit)
     {
-        ADual<AString,int> el=cache.ForRemove();
+        alt::dualVal<alt::string,int> el=cache.ForRemove();
         cache.Delete(fonts[el.left()][el.right()].cacheIndex);
 
-        ATArray<AGLTexture*> texs=fonts[el.left()][el.right()].textures;
+        alt::array<AGLTexture*> texs=fonts[el.left()][el.right()].textures;
         for(int k=0;k<texs.size();k++)
         {
             delete texs[k];
@@ -798,12 +798,12 @@ void AGLFont::createBlock(int index)
     real32 str_height=1;
 
     //создадим полотно
-    AImage img(256,256);
+    alt::image img(256,256);
     img.fill(0);
 
     for(int i=0;i<256;i++)
     {
-        AImage glph = createGlyph(index*256+i);
+        alt::image glph = createGlyph(index*256+i);
         if(glph.width()+curr_xp+1>256) //строка заполнена?
         {
             curr_yp+=str_height+1;
@@ -845,7 +845,7 @@ void AGLFont::createBlock(int index)
 
     //запишем блок
     if(str_height>block.height)block.height=str_height;
-    block.cacheIndex=cache.Push(ADual<AString,int>(curr_font,index));
+    block.cacheIndex=cache.Push(alt::dualVal<alt::string,int>(curr_font,index));
     fonts[curr_font][index]=block;
 
     onEndBlock();

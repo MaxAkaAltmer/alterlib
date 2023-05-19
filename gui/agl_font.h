@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2018 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -32,10 +32,10 @@ SOFTWARE.
 #endif
 
 #include "agl_texture.h"
-#include "../math_vec.h"
+#include "../amath_vec.h"
 #include "../at_array.h"
 #include "../astring.h"
-#include "../pcache.h"
+#include "../at_priority_cache.h"
 #include "../acolor.h"
 #include "../aimage.h"
 
@@ -49,8 +49,8 @@ struct aglFontGlyphInfo
 
 struct aglFontBlock
 {
-    ATArray<aglFontGlyphInfo> glyphs;
-    ATArray<AGLTexture*> textures;
+    alt::array<aglFontGlyphInfo> glyphs;
+    alt::array<AGLTexture*> textures;
     real32 height;
     real32 spacing;
     bool spacing_is_abs;
@@ -62,21 +62,21 @@ class AGLFont
 {
 public:
     AGLFont();
-    AGLFont(AString font, int block_limit);
-    ~AGLFont();
+    AGLFont(alt::string font, int block_limit);
+    virtual ~AGLFont();
 
     void clear();
 
-    void setFont(const AString &val){curr_font=val;}
-    void setColor(const AColor val){curr_color=val;}
+    void setFont(const alt::string &val){curr_font=val;}
+    void setColor(const alt::colorRGBA val){curr_color=val;}
     void setAlpha(real32 val){curr_color.setAf(val);}
 
-    vec2d<real32> printSize(const AString &val, int *lineCount=NULL);
-    real32 print(const AString &val, const vec2d<real32> &pnt, real32 scale=1.0);
-    void printInQuad(const AString &val,
-                     vec3d<real32> lt, vec3d<real32> rt,
-                     vec3d<real32> rd, vec3d<real32> ld,
-                     AColor bg=AColor());
+    alt::vec2d<real32> printSize(const alt::string &val, int *lineCount=NULL);
+    real32 print(const alt::string &val, const alt::vec2d<real32> &pnt, real32 scale=1.0);
+    void printInQuad(const alt::string &val,
+                     alt::vec3d<real32> lt, alt::vec3d<real32> rt,
+                     alt::vec3d<real32> rd, alt::vec3d<real32> ld,
+                     alt::colorRGBA bg=alt::colorRGBA());
 
     enum BOXFLAGS
     {
@@ -92,16 +92,16 @@ public:
         HOR_FULL = 0x0c,
         LINE_REORDER = 0x100
     };
-    void printInBox(const AString &val, const AQuad<vec3d<real> > &box, AColor bg, int flags=0, real32 txscale=1.0);
+    void printInBox(const alt::string &val, const alt::quad3d<real > &box, alt::colorRGBA bg, int flags=0, real32 txscale=1.0);
 
-    void printon(const AString &val, const vec2d<real32> &pnt, AColor bg, real32 scale=1.0)
+    void printon(const alt::string &val, const alt::vec2d<real32> &pnt, alt::colorRGBA bg, real32 scale=1.0)
     {
-        vec2d<real32> sz=printSize(val);
+        alt::vec2d<real32> sz=printSize(val);
         printInQuad(val,
-                    vec3d<real32>(pnt.x,pnt.y,0.0),
-                    vec3d<real32>(pnt.x+sz.x*scale,pnt.y,0.0),
-                    vec3d<real32>(pnt.x+sz.x*scale,pnt.y+sz.y*scale,0.0),
-                    vec3d<real32>(pnt.x,pnt.y+sz.y*scale,0.0),
+                    alt::vec3d<real32>(pnt.x,pnt.y,0.0),
+                    alt::vec3d<real32>(pnt.x+sz.x*scale,pnt.y,0.0),
+                    alt::vec3d<real32>(pnt.x+sz.x*scale,pnt.y+sz.y*scale,0.0),
+                    alt::vec3d<real32>(pnt.x,pnt.y+sz.y*scale,0.0),
                     bg
                     );
     }
@@ -113,40 +113,40 @@ public:
         TF_NOTAB=4
     };
 
-    vec2d<real32> printInWidth(const AString &val, real32 width, real32 fontSize,
-                        bool onlyCalculate=true, vec2d<real32> pnt=vec2d<real32>(),
+    alt::vec2d<real32> printInWidth(const alt::string &val, real32 width, real32 fontSize,
+                        bool onlyCalculate=true, alt::vec2d<real32> pnt=alt::vec2d<real32>(),
                         int flags=TF_PARAGRAF);
 
 protected:
 
 #ifdef QT_WIDGETS_LIB
-    virtual AImage createGlyph(charx sym);
+    virtual alt::image createGlyph(charx sym);
     virtual real32 getSpacing();
     virtual bool spacingAbs();
 #else
     virtual AImage createGlyph(charx sym) = 0;
     virtual real32 getSpacing() {return 0.0;}
-    virtual bool spacingAbs() {return false;}    
+    virtual bool spacingAbs() {return false;}
 #endif
     virtual void onStartBlock(){return;}
     virtual void onEndBlock(){return;}
 
     //настройки отображения
-    AColor curr_color;
-    AString curr_font;
+    alt::colorRGBA curr_color;
+    alt::string curr_font;
 
     //создание и уничтожение блоков
     void createBlock(int index);
     void checkBlocksLifeCicle();
 
     //формат строки: Type:Size
-    ATHash<AString, ATHash<int,aglFontBlock> > fonts;
-    PriorityCache<ADual<AString,int> > cache;
+    alt::hash<alt::string, alt::hash<int,aglFontBlock> > fonts;
+    alt::priorityCache<alt::dualVal<alt::string,int> > cache;
     int blocklimit;
 
     //списки вершин и текстурных координат
-    ATArray<GLfloat> vertexes;
-    ATArray<GLfloat> coords;
+    alt::array<GLfloat> vertexes;
+    alt::array<GLfloat> coords;
 };
 
 #endif // AGL_FONT_H

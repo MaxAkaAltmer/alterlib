@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2018 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -51,8 +51,8 @@ void AGLTexture::createBitmap(const void *buff, int w, int h, uint32 format, int
 
     hand->width=w;
     hand->height=h;
-    int tmp_w=hand->alwidth=1<<__bsr32(w-1);
-    int tmp_h=hand->alheight=1<<__bsr32(h-1);
+    int tmp_w=hand->alwidth=1<<alt::imath::bsr32(w-1);
+    int tmp_h=hand->alheight=1<<alt::imath::bsr32(h-1);
     hand->pixelFormat=format;
 
     if(tmp_w!=w || tmp_h!=h)
@@ -155,7 +155,7 @@ void AGLTexture::drawFrameOver(int w, int h) const
     drawVertexes(vertexes,coords,4);
 }
 
-void aglqMakeTriangles(GLfloat *vertexes, GLfloat *coords, ATRect<real32> scr, ATRect<real32> tex,
+void aglqMakeTriangles(GLfloat *vertexes, GLfloat *coords, alt::rect<real32> scr, alt::rect<real32> tex,
                        bool flipH=false, bool flipV=false)
 {
     vertexes[0*3+0]=scr.tl().x; vertexes[0*3+1]=scr.tl().y; vertexes[0*3+2]=0.0;
@@ -175,7 +175,7 @@ void aglqMakeTriangles(GLfloat *vertexes, GLfloat *coords, ATRect<real32> scr, A
     coords[5*2+0]=flipH?tex.dr().x:tex.dl().x; coords[5*2+1]=flipV?tex.tl().y:tex.dl().y;
 }
 
-void AGLTexture::drawBox(ATRect<real32> box, real32 border, AColor col)
+void AGLTexture::drawBox(alt::rect<real32> box, real32 border, alt::colorRGBA col)
 {
     if(!hand)return;
     if(border>((box.width-1.0)/2.0)) border=(box.width-1.0)/2.0;
@@ -187,54 +187,54 @@ void AGLTexture::drawBox(ATRect<real32> box, real32 border, AColor col)
     GLfloat vertexes[3*9*6];
     GLfloat coords[2*9*6];
 
-    ATRect<real32> trc=normalRect();
+    alt::rect<real32> trc=normalRect();
 
     aglqMakeTriangles(vertexes,coords,
-                      ATRect<real32>(box.x,box.y,border,border),
-                      ATRect<real32>(trc.x,trc.y,trc.width,trc.height));
+                      alt::rect<real32>(box.x,box.y,border,border),
+                      alt::rect<real32>(trc.x,trc.y,trc.width,trc.height));
 
     aglqMakeTriangles(vertexes+3*6,coords+2*6,
-                      ATRect<real32>(box.x+border,box.y,box.width-2*border,border),
-                      ATRect<real32>(trc.width-convX(1),trc.y,convX(1),trc.height));
+                      alt::rect<real32>(box.x+border,box.y,box.width-2*border,border),
+                      alt::rect<real32>(trc.width-convX(1),trc.y,convX(1),trc.height));
 
     aglqMakeTriangles(vertexes+2*3*6,coords+2*2*6,
-                      ATRect<real32>(box.x+box.width-border,box.y,border,border),
-                      ATRect<real32>(trc.x,trc.y,trc.width,trc.height),true);
+                      alt::rect<real32>(box.x+box.width-border,box.y,border,border),
+                      alt::rect<real32>(trc.x,trc.y,trc.width,trc.height),true);
 
     aglqMakeTriangles(vertexes+3*3*6,coords+3*2*6,
-                      ATRect<real32>(box.x,box.y+border,border,box.height-2*border),
-                      ATRect<real32>(trc.x,trc.height-convY(1),trc.width,convY(1)));
+                      alt::rect<real32>(box.x,box.y+border,border,box.height-2*border),
+                      alt::rect<real32>(trc.x,trc.height-convY(1),trc.width,convY(1)));
 
     aglqMakeTriangles(vertexes+4*3*6,coords+4*2*6,
-                      ATRect<real32>(box.x+border,box.y+border,box.width-2*border,box.height-2*border),
-                      ATRect<real32>(trc.width-convX(1),trc.height-convY(1),convX(1),convY(1)));
+                      alt::rect<real32>(box.x+border,box.y+border,box.width-2*border,box.height-2*border),
+                      alt::rect<real32>(trc.width-convX(1),trc.height-convY(1),convX(1),convY(1)));
 
     aglqMakeTriangles(vertexes+5*3*6,coords+5*2*6,
-                      ATRect<real32>(box.x+box.width-border,box.y+border,border,box.height-2*border),
-                      ATRect<real32>(trc.x,trc.height-convY(1),trc.width,convY(1)),true);
+                      alt::rect<real32>(box.x+box.width-border,box.y+border,border,box.height-2*border),
+                      alt::rect<real32>(trc.x,trc.height-convY(1),trc.width,convY(1)),true);
 
     aglqMakeTriangles(vertexes+6*3*6,coords+6*2*6,
-                      ATRect<real32>(box.x,box.y+box.height-border,border,border),
-                      ATRect<real32>(trc.x,trc.y,trc.width,trc.height),false,true);
+                      alt::rect<real32>(box.x,box.y+box.height-border,border,border),
+                      alt::rect<real32>(trc.x,trc.y,trc.width,trc.height),false,true);
 
     aglqMakeTriangles(vertexes+7*3*6,coords+7*2*6,
-                      ATRect<real32>(box.x+border,box.y+box.height-border,box.width-2*border,border),
-                      ATRect<real32>(trc.width-convX(1),trc.y,convX(1),trc.height),false,true);
+                      alt::rect<real32>(box.x+border,box.y+box.height-border,box.width-2*border,border),
+                      alt::rect<real32>(trc.width-convX(1),trc.y,convX(1),trc.height),false,true);
 
     aglqMakeTriangles(vertexes+8*3*6,coords+8*2*6,
-                      ATRect<real32>(box.x+box.width-border,box.y+box.height-border,border,border),
-                      ATRect<real32>(trc.x,trc.y,trc.width,trc.height),true,true);
+                      alt::rect<real32>(box.x+box.width-border,box.y+box.height-border,border,border),
+                      alt::rect<real32>(trc.x,trc.y,trc.width,trc.height),true,true);
 
     drawVertexes(vertexes,coords,9*6,false);
 }
 
-void AGLTexture::drawRectPartInt(ATRect<real32> scr_part, ATRect<int32> tex_part) const
+void AGLTexture::drawRectPartInt(alt::rect<real32> scr_part, alt::rect<int32> tex_part) const
 {
-    ATRect<real32> rc(convX(tex_part.x),convY(tex_part.y),convX(tex_part.width),convY(tex_part.height));
+    alt::rect<real32> rc(convX(tex_part.x),convY(tex_part.y),convX(tex_part.width),convY(tex_part.height));
     drawRectPart(scr_part,rc);
 }
 
-void AGLTexture::drawRectPart(ATRect<real32> scr_part, ATRect<real32> tex_part) const
+void AGLTexture::drawRectPart(alt::rect<real32> scr_part, alt::rect<real32> tex_part) const
 {
     if(!hand)return;
 
@@ -277,7 +277,7 @@ void AGLTexture::drawRect(real32 x, real32 y, real32 w, real32 h) const
     glFlush();
 }
 
-void AGLTexture::drawParticle(real32 x, real32 y, real32 z, real32 zoom, AColor col) const
+void AGLTexture::drawParticle(real32 x, real32 y, real32 z, real32 zoom, alt::colorRGBA col) const
 {
     if(!hand)return;
 
@@ -346,8 +346,8 @@ void AGLTexture::resize(int w, int h, uint32 format, int filter)
         hand->pixelFormat = format;
         hand->width=w;
         hand->height=h;
-        int tmp_w=hand->alwidth=1<<__bsr32(hand->width-1);;
-        int tmp_h=hand->alheight=1<<__bsr32(hand->height-1);;
+        int tmp_w=hand->alwidth=1<<alt::imath::bsr32(hand->width-1);;
+        int tmp_h=hand->alheight=1<<alt::imath::bsr32(hand->height-1);;
         uint8 *buffer=new uint8[tmp_h*tmp_w*pixelSize(format)];
 
         memset(buffer,0,tmp_h*tmp_w*pixelSize(format));

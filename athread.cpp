@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2020 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,8 @@ SOFTWARE.
 
 #include "athread.h"
 
+using namespace alt;
+
 #if defined(linux) || defined(__APPLE__)
 
 #include <unistd.h>
@@ -36,7 +38,7 @@ SOFTWARE.
 
 struct internalSleepStream
 {
-    pthread_t thread;
+    pthread_t hnd;
     pthread_mutex_t mutex;
     pthread_cond_t condition;
 
@@ -46,7 +48,7 @@ struct internalSleepStream
     //пользовательские переменные
     void *data;
     volatile bool loop_flag;
-    ADelegate<int,void*> proc; //делегат или...
+    delegate<int,void*> proc; //делегат или...
     int (*fun)(void*); //простая функция
 };
 
@@ -71,7 +73,7 @@ void* sleepStreamThread (void *p)
 
             if(hand->loop_flag && rv>=0)
             {
-                aSleep(rv);
+                sleep(rv);
             }
         }while(hand->loop_flag && rv>=0);
 
@@ -82,7 +84,7 @@ void* sleepStreamThread (void *p)
     return NULL;
 }
 
-AThread::AThread(ADelegate<int, void *> proc)
+AThread::AThread(delegate<int, void *> proc)
 {
     internalSleepStream *hand = new internalSleepStream;
     hand->complete_flag=false;
@@ -94,7 +96,7 @@ AThread::AThread(ADelegate<int, void *> proc)
 
     hand->fun=NULL;
     hand->proc = proc;
-    pthread_create(&hand->thread,NULL,sleepStreamThread,hand);
+    pthread_create(&hand->hnd,NULL,sleepStreamThread,hand);
 
     internal=hand;
 }
@@ -110,7 +112,7 @@ AThread::AThread(int (*fun)(void*))
     pthread_mutex_init(&hand->mutex,NULL);
 
     hand->fun=fun;
-    pthread_create(&hand->thread,NULL,sleepStreamThread,hand);
+    pthread_create(&hand->hnd,NULL,sleepStreamThread,hand);
 
     internal=hand;
 }
@@ -121,7 +123,7 @@ void AThread::terminate()
 
     hand->loop_flag=false;
     hand->exit_flag=true;
-    pthread_kill(hand->thread, SIGKILL);
+    pthread_kill(hand->hnd, SIGKILL);
 }
 
 AThread::~AThread()
@@ -146,7 +148,7 @@ AThread::~AThread()
         pthread_cond_signal(&hand->condition);
         sched_yield();
 
-        pthread_join( hand->thread, NULL);
+        pthread_join( hand->hnd, NULL);
     }
 
     pthread_mutex_destroy(&hand->mutex);
@@ -191,10 +193,14 @@ bool AThread::wait(int count, int us)
     while(!success && (count<0 || count>0))
     {
         if(count>0)count--;
+        if(count<0)
+            pthread_mutex_lock( &hand->mutex );
         if(hand->complete_flag)
         {
             success=true;
         }
+        if(count<0)
+            pthread_mutex_unlock(&hand->mutex);
         if(!success)
         {
             if(!us)sched_yield();
@@ -211,7 +217,7 @@ bool AThread::isOff()
     return hand->complete_flag || hand->exit_flag;
 }
 
-void aSleep(int us)
+void alt::sleep(int us)
 {
     if(!us)sched_yield();
     else usleep(us);
@@ -249,17 +255,39 @@ void ASemaphore::unlock()
     pthread_mutex_unlock(&hand->mutex);
 }
 
+bool ASemaphore::canlock()
+{
+    internalSemaphore *hand = (internalSemaphore*)internal;
+    if(pthread_mutex_trylock(&hand->mutex) == EBUSY)
+        return false;
+    return true;
+}
+
 #else
 
 #define _WIN32_WINNT 0x0600
 #include <windows.h>
 #include <WinBase.h>
 
-typedef WINBOOL WINAPI (*SleepConditionVariableCS_proc) (PCONDITION_VARIABLE ConditionVariable, PCRITICAL_SECTION CriticalSection, DWORD dwMilliseconds);
+#ifndef _DEF_WINBOOL_
+#define _DEF_WINBOOL_
+typedef int WINBOOL;
+#pragma push_macro("BOOL")
+#undef BOOL
+#if !defined(__OBJC__) && !defined(__OBJC_BOOL) && !defined(__objc_INCLUDE_GNU) && !defined(_NO_BOOL_TYPEDEF)
+  typedef int BOOL;
+#endif
+#define BOOL WINBOOL
+typedef BOOL *PBOOL;
+typedef BOOL *LPBOOL;
+#pragma pop_macro("BOOL")
+#endif /* _DEF_WINBOOL_ */
+
+typedef WINBOOL  (*SleepConditionVariableCS_proc) (PCONDITION_VARIABLE ConditionVariable, PCRITICAL_SECTION CriticalSection, DWORD dwMilliseconds);
 static SleepConditionVariableCS_proc pSleepConditionVariableCS=NULL;
-typedef VOID WINAPI (*InitializeConditionVariable_proc) (PCONDITION_VARIABLE ConditionVariable);
+typedef VOID  (*InitializeConditionVariable_proc) (PCONDITION_VARIABLE ConditionVariable);
 static InitializeConditionVariable_proc pInitializeConditionVariable=NULL;
-typedef VOID WINAPI (*WakeAllConditionVariable_proc) (PCONDITION_VARIABLE ConditionVariable);
+typedef VOID  (*WakeAllConditionVariable_proc) (PCONDITION_VARIABLE ConditionVariable);
 static WakeAllConditionVariable_proc pWakeAllConditionVariable=NULL;
 
 static bool existsConditionVars()
@@ -297,7 +325,7 @@ struct internalSleepStream
 
     //пользовательские переменные
     void *data;
-    ADelegate<int,void*> proc; //делегат или...
+    delegate<int,void*> proc; //делегат или...
     int (*fun)(void*); //простая функция
 };
 
@@ -333,7 +361,7 @@ static DWORD WINAPI sleepStreamThread (PVOID p)
 
             if(hand->loop_flag && rv>=0)
             {
-                aSleep(rv);
+                sleep(rv);
             }
         }while(hand->loop_flag && rv>=0);
 
@@ -348,7 +376,7 @@ static DWORD WINAPI sleepStreamThread (PVOID p)
     return 0;
 }
 
-void AThread::terminate()
+void thread::terminate()
 {
     internalSleepStream *hand = (internalSleepStream*)internal;
 
@@ -357,7 +385,7 @@ void AThread::terminate()
     TerminateThread(&hand->hph,0);
 }
 
-AThread::AThread(ADelegate<int, void *> proc)
+thread::thread(delegate<int, void *> proc)
 {
     internalSleepStream *hand = new internalSleepStream;
     hand->complete_flag=false;
@@ -379,7 +407,7 @@ AThread::AThread(ADelegate<int, void *> proc)
     internal = hand;
 }
 
-AThread::AThread(int (*fun)(void*))
+thread::thread(int (*fun)(void*))
 {
     internalSleepStream *hand = new internalSleepStream;
     hand->complete_flag=false;
@@ -400,7 +428,7 @@ AThread::AThread(int (*fun)(void*))
     internal = hand;
 }
 
-AThread::~AThread()
+thread::~thread()
 {
     internalSleepStream *hand = (internalSleepStream*)internal;
 
@@ -437,7 +465,7 @@ AThread::~AThread()
     delete hand;
 }
 
-bool AThread::run(void *data, bool loop)
+bool thread::run(void *data, bool loop)
 {
     internalSleepStream *hand = (internalSleepStream*)internal;
 
@@ -466,7 +494,7 @@ bool AThread::run(void *data, bool loop)
     return true;
 }
 
-bool AThread::wait(int count, int us)
+bool thread::wait(int count, int us)
 {
     internalSleepStream *hand = (internalSleepStream*)internal;
 
@@ -477,23 +505,27 @@ bool AThread::wait(int count, int us)
     while(!success && (count<0 || count>0))
     {
         if(count>0)count--;
+        if(count<0)
+            EnterCriticalSection (&hand->lock);
         if(hand->complete_flag)
         {
             success=true;
         }
-        if(!success)aSleep(us);
+        if(count<0)
+            LeaveCriticalSection (&hand->lock);
+        if(!success)sleep(us);
     }
 
     return success;
 }
 
-bool AThread::isOff()
+bool thread::isOff()
 {
     internalSleepStream *hand = (internalSleepStream*)internal;
     return hand->complete_flag || hand->exit_flag;
 }
 
-void aSleep(int us)
+void alt::sleep(int us)
 {
     Sleep(us/1000);
 }
@@ -503,30 +535,36 @@ struct internalSemaphore
     CRITICAL_SECTION lock;
 };
 
-ASemaphore::ASemaphore()
+semaphore::semaphore()
 {
     internalSemaphore *hand = new internalSemaphore;
     InitializeCriticalSection (&hand->lock);
     internal=hand;
 }
 
-ASemaphore::~ASemaphore()
+semaphore::~semaphore()
 {
     internalSemaphore *hand = (internalSemaphore*)internal;
     DeleteCriticalSection(&hand->lock);
     delete hand;
 }
 
-void ASemaphore::lock()
+void semaphore::lock()
 {
     internalSemaphore *hand = (internalSemaphore*)internal;
     EnterCriticalSection (&hand->lock);
 }
 
-void ASemaphore::unlock()
+void semaphore::unlock()
 {
     internalSemaphore *hand = (internalSemaphore*)internal;
     LeaveCriticalSection (&hand->lock);
+}
+
+bool semaphore::canlock()
+{
+    internalSemaphore *hand = (internalSemaphore*)internal;
+    return TryEnterCriticalSection (&hand->lock);
 }
 
 #endif

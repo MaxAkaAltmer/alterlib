@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2020 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -27,32 +27,36 @@ SOFTWARE.
 #ifndef ACRYPTO_H
 #define ACRYPTO_H
 
-#include "adata.h"
+#include "abyte_array.h"
 
-class ACryptoHash
-{
-public:
-    enum HashFunction
+namespace alt {
+
+    class cryptoHash
     {
-        CRC32 = 0,
-        MD5,
-        SHA1
+    public:
+        enum HashFunction
+        {
+            CRC32 = 0,
+            MD5,
+            SHA1
+        };
+
+        cryptoHash(HashFunction method);
+        ~cryptoHash();
+
+        void reset();
+        void append(const alt::byteArray &data);
+        void append(void *buff, int size);
+        alt::byteArray result();
+
+        static uint32 makeCRC32(void *buff, int size);
+
+    private:
+        HashFunction hashfun;
+        void *context;
+        alt::byteArray hashdata;
     };
 
-    ACryptoHash(HashFunction method);
-    ~ACryptoHash();
-
-    void reset();
-    void append(const AData &data);
-    void append(void *buff, int size);
-    AData result();
-
-    static uint32 makeCRC32(void *buff, int size);
-
-private:
-    HashFunction hashfun;
-    void *context;
-    AData hashdata;
-};
+} // namespace alt
 
 #endif // ACRYPTO_H

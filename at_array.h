@@ -169,7 +169,11 @@ namespace alt {
         array<T>& append(const T *buff, int count)
         {
             if(!count) return *this;
-            if(!data)data=newInternal(count);
+            if(!data)
+            {
+                data=newInternal(count);
+                data->size = 0;
+            }
             if(data->refcount<2 && data->alloc>=data->size+count)
             {
                 alt::utils::memcpy(&data->buff[data->size],(uint8*)buff,count);
@@ -187,7 +191,8 @@ namespace alt {
 
         array<T>& reserve(int size)
         {
-            if(data && size<=data->size)return *this;
+            if(data && size<=data->alloc)
+                return *this;
             Internal *tmp=newInternal(size);
             if(data && data->size)
             {

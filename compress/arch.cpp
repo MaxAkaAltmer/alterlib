@@ -151,7 +151,6 @@ alt::byteArray _arch_data_block_compress_best(const void *data_p, int size)
 alt::byteArray _arch_data_block_compress_rle(const void *data_p, int size)
 {
     alt::byteArray result;
-    ArithEncoder arithc;
 
     const uint8 *data=(const uint8*)data_p;
 

@@ -748,6 +748,29 @@ namespace alt {
             return rv;
         }
 
+        static string join(const alt::array<string> &arr, string sep)
+        {
+            string rv;
+            for(int i=0;i<arr.size();i++)
+            {
+                if(i)rv+=sep;
+                rv+=arr[i];
+            }
+            return rv;
+        }
+
+        template <class I>
+        static string join(const I *arr, uintz size, char sep)
+        {
+            string rv;
+            for(uintz i=0;i<size;i++)
+            {
+                if(i && sep)rv.append(sep);
+                rv+=fromInt(arr[i]);
+            }
+            return rv;
+        }
+
     };
 
 ///////////////////////////////////////////////////////////////////////////////

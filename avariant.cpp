@@ -45,6 +45,8 @@ bool variant::toBool(bool *ok) const
         if(tmp=="true" || tmp=="ok" || tmp=="yes")
             return true;
         return false; }
+    case tFraction:
+        return imath::round<intx>(data.vFraction->to<realx>());
     default:
         if(ok)*ok=false;
         break;
@@ -67,10 +69,34 @@ intx variant::toInt(bool *ok) const
         return (*data.vString).toInt<intx>(10,ok);
     case tPointer:
         return ptr2int(data.vPointer);
+    case tFraction:
+        return data.vFraction->to<intx>();
     default:
         if(ok)*ok=false;
         break;
     }    
+    return 0;
+}
+
+fraction<intx> variant::toFraction(bool *ok) const
+{
+    if(ok)*ok=true;
+    switch(type)
+    {
+    case tBool:
+        return data.vBool?1:0;
+    case tInt:
+        return data.vInt;
+    case tReal:
+        return fraction<intx>::from(data.vReal);
+    case tString: //todo:: parsing
+        return fraction<intx>::from((*data.vString).toReal<realx>());
+    case tFraction:
+        return *data.vFraction;
+    default:
+        if(ok)*ok=false;
+        break;
+    }
     return 0;
 }
 
@@ -87,6 +113,8 @@ realx variant::toReal(bool *ok) const
         return data.vReal;
     case tString:
         return (*data.vString).toReal<realx>();
+    case tFraction:
+        return data.vFraction->to<realx>();
     default:
         if(ok)*ok=false;
         break;
@@ -110,6 +138,9 @@ string variant::toString(bool *ok) const
         return string::fromReal(data.vReal,20);
     case tData:
         return (*data.vData).toHex();
+    case tFraction:
+        return data.vFraction->toString();
+        //todo: all cases
     default:
         if(ok)*ok=false;
         break;
@@ -182,7 +213,7 @@ void* variant::toPointer(bool *ok) const
     return NULL;
 }
 
-variant variant::neg_value()
+variant variant::neg_value() const
 {
     if(type==tReal)
     {
@@ -192,10 +223,14 @@ variant variant::neg_value()
     {
         return -toInt();
     }
+    if(type == tFraction)
+    {
+        return -toFraction();
+    }
     return variant();
 }
 
-variant variant::not_value()
+variant variant::not_value() const
 {
     bool ok = false;
     bool val = toBool(&ok);
@@ -246,8 +281,13 @@ variant& variant::operator += (const variant &val)
     {
         *this =  toInt() + val.toInt();
     }
-    else if((type==tReal || type==tInt || type==tBool) &&
-            (val.type==tReal || val.type==tInt || val.type==tBool))
+    else if((type==tInt || type==tBool || type==tFraction) &&
+            (val.type==tInt || val.type==tBool || val.type==tFraction))
+    {
+        *this =  toFraction() + val.toFraction();
+    }
+    else if((type==tReal || type==tInt || type==tBool || type==tFraction) &&
+            (val.type==tReal || val.type==tInt || val.type==tBool || val.type==tFraction))
     {
         *this =  toReal() + val.toReal();
     }
@@ -288,8 +328,13 @@ variant& variant::operator -= (const variant &val)
     {
         *this =  toInt() - val.toInt();
     }
-    else if((type==tReal || type==tInt || type==tBool || type==tString) &&
-            (val.type==tReal || val.type==tInt || val.type==tBool || val.type==tString))
+    else if((type==tInt || type==tBool || type==tFraction) &&
+            (val.type==tInt || val.type==tBool || val.type==tFraction))
+    {
+        *this =  toFraction() - val.toFraction();
+    }
+    else if((type==tReal || type==tInt || type==tBool || type==tString || type==tFraction) &&
+            (val.type==tReal || val.type==tInt || val.type==tBool || val.type==tString || val.type==tFraction))
     {
         *this =  toReal() - val.toReal();
     }
@@ -315,8 +360,13 @@ variant& variant::operator *= (const variant &val)
     {
         *this =  toInt() * val.toInt();
     }
-    else if((type==tReal || type==tInt || type==tBool || type==tString) &&
-            (val.type==tReal || val.type==tInt || val.type==tBool || val.type==tString))
+    else if((type==tInt || type==tBool || type==tFraction) &&
+            (val.type==tInt || val.type==tBool || val.type==tFraction))
+    {
+        *this =  toFraction() * val.toFraction();
+    }
+    else if((type==tReal || type==tInt || type==tBool || type==tString || type==tFraction) &&
+            (val.type==tReal || val.type==tInt || val.type==tBool || val.type==tString || val.type==tFraction))
     {
         *this =  toReal() * val.toReal();
     }
@@ -342,8 +392,13 @@ variant& variant::operator /= (const variant &val)
     {
         *this =  toInt() / val.toInt();
     }
-    else if((type==tReal || type==tInt || type==tBool || type==tString) &&
-            (val.type==tReal || val.type==tInt || val.type==tBool || val.type==tString))
+    else if((type==tInt || type==tBool || type==tFraction) &&
+            (val.type==tInt || val.type==tBool || val.type==tFraction))
+    {
+        *this =  toFraction() / val.toFraction();
+    }
+    else if((type==tReal || type==tInt || type==tBool || type==tString || type==tFraction) &&
+            (val.type==tReal || val.type==tInt || val.type==tBool || val.type==tString || val.type==tFraction))
     {
         *this =  toReal() / val.toReal();
     }
@@ -364,8 +419,13 @@ variant& variant::operator %= (const variant &val)
         }
         return *this;
     }
-    if((type==tReal || type==tInt || type==tBool || type==tString) &&
-            (val.type==tReal || val.type==tInt || val.type==tBool || val.type==tString))
+    if((type==tInt || type==tBool || type==tFraction) &&
+                (val.type==tInt || val.type==tBool || val.type==tFraction))
+    {
+        *this =  toFraction() / val.toFraction();
+    }
+    else if((type==tReal || type==tInt || type==tBool || type==tString || type==tFraction) &&
+            (val.type==tReal || val.type==tInt || val.type==tBool || val.type==tString || val.type==tFraction))
     {
         *this =  toInt() % val.toInt();
     }
@@ -391,6 +451,10 @@ bool variant::operator==(const variant &val) const
             return toInt() == val.toInt();
         }
 
+        if((type == tFraction && (val.type == tInt || val.type == tReal || val.type == tBool))
+                || (val.type == tFraction && (type == tInt || type == tReal || type == tBool)))
+            return toFraction() == val.toFraction();
+
         if(toString()==val.toString())return true;
         return false;
     }
@@ -401,6 +465,7 @@ bool variant::operator==(const variant &val) const
     if(type==tBool && data.vBool==val.data.vBool)return true;
     if(type==tReal && data.vReal==val.data.vReal)return true;
     if(type==tInt && data.vInt==val.data.vInt)return true;
+    if(type==tFraction && (*data.vFraction)==(*val.data.vFraction))return true;
     if(type==tPointer && data.vPointer==val.data.vPointer)return true;
     if(type==tInvalide)return true;
     return false;
@@ -415,10 +480,16 @@ bool variant::operator<(const variant &val) const
         if(type==tHash || val.type==tHash)return false;
         if(type==tArray || val.type==tArray)return false;
 
-        if((type==tReal && (val.type==tInt || val.type==tBool)) ||
-                (val.type==tReal && (type==tInt || type==tBool)))
+        if((type==tReal && (val.type==tInt || val.type==tBool || val.type==tFraction)) ||
+                (val.type==tReal && (type==tInt || type==tBool || type==tFraction)))
         {
             return toReal() < val.toReal();
+        }
+
+        if(((type==tInt || type==tBool) && val.type==tFraction) ||
+                ((val.type==tInt || val.type==tBool) && type==tFraction))
+        {
+            return toFraction() < val.toFraction();
         }
 
         if((type==tInt && val.type==tBool) ||
@@ -435,6 +506,7 @@ bool variant::operator<(const variant &val) const
     if(type==tBool && data.vBool<val.data.vBool)return true;
     if(type==tReal && data.vReal<val.data.vReal)return true;
     if(type==tInt && data.vInt<val.data.vInt)return true;
+    if(type==tFraction && (*data.vFraction)<(*val.data.vFraction))return true;
     if(type==tPointer && ptr2int(data.vPointer)<ptr2int(val.data.vPointer))return true;
     return false;
 }
@@ -448,10 +520,16 @@ bool variant::operator<=(const variant &val) const
         if(type==tHash || val.type==tHash)return false;
         if(type==tArray || val.type==tArray)return false;
 
-        if((type==tReal && (val.type==tInt || val.type==tBool)) ||
-                (val.type==tReal && (type==tInt || type==tBool)))
+        if((type==tReal && (val.type==tInt || val.type==tBool || val.type==tFraction)) ||
+                (val.type==tReal && (type==tInt || type==tBool || type==tFraction)))
         {
             return toReal() <= val.toReal();
+        }
+
+        if(((type==tInt || type==tBool) && val.type==tFraction) ||
+                ((val.type==tInt || val.type==tBool) && type==tFraction))
+        {
+            return toFraction() <= val.toFraction();
         }
 
         if((type==tInt && val.type==tBool) ||
@@ -468,73 +546,8 @@ bool variant::operator<=(const variant &val) const
     if(type==tBool && data.vBool<=val.data.vBool)return true;
     if(type==tReal && data.vReal<=val.data.vReal)return true;
     if(type==tInt && data.vInt<=val.data.vInt)return true;
+    if(type==tFraction && (*data.vFraction)<=(*val.data.vFraction))return true;
     if(type==tPointer && ptr2int(data.vPointer)<=ptr2int(val.data.vPointer))return true;
-    return false;
-}
-
-bool variant::operator>(const variant &val) const
-{
-    if(type!=val.type)
-    {
-        if(type==tInvalide || val.type==tInvalide)return false;
-        if(type==tPointer || val.type==tPointer)return false;
-        if(type==tHash || val.type==tHash)return false;
-        if(type==tArray || val.type==tArray)return false;
-
-        if((type==tReal && (val.type==tInt || val.type==tBool)) ||
-                (val.type==tReal && (type==tInt || type==tBool)))
-        {
-            return toReal() > val.toReal();
-        }
-
-        if((type==tInt && val.type==tBool) ||
-                (val.type==tInt && type==tBool))
-        {
-            return toInt() > val.toInt();
-        }
-
-        if(toString()>val.toString())return true;
-        return false;
-    }
-    if(type==tData && (*data.vData).toHex()>(*val.data.vData).toHex())return true;
-    if(type==tString && (*data.vString)>(*val.data.vString))return true;
-    if(type==tBool && data.vBool>val.data.vBool)return true;
-    if(type==tReal && data.vReal>val.data.vReal)return true;
-    if(type==tInt && data.vInt>val.data.vInt)return true;
-    if(type==tPointer && ptr2int(data.vPointer)>ptr2int(val.data.vPointer))return true;
-    return false;
-}
-
-bool variant::operator>=(const variant &val) const
-{
-    if(type!=val.type)
-    {
-        if(type==tInvalide || val.type==tInvalide)return false;
-        if(type==tPointer || val.type==tPointer)return false;
-        if(type==tHash || val.type==tHash)return false;
-        if(type==tArray || val.type==tArray)return false;
-
-        if((type==tReal && (val.type==tInt || val.type==tBool)) ||
-                (val.type==tReal && (type==tInt || type==tBool)))
-        {
-            return toReal() >= val.toReal();
-        }
-
-        if((type==tInt && val.type==tBool) ||
-                (val.type==tInt && type==tBool))
-        {
-            return toInt() >= val.toInt();
-        }
-
-        if(toString()>=val.toString())return true;
-        return false;
-    }
-    if(type==tData && (*data.vData).toHex()>=(*val.data.vData).toHex())return true;
-    if(type==tString && (*data.vString)>=(*val.data.vString))return true;
-    if(type==tBool && data.vBool>=val.data.vBool)return true;
-    if(type==tReal && data.vReal>=val.data.vReal)return true;
-    if(type==tInt && data.vInt>=val.data.vInt)return true;
-    if(type==tPointer && ptr2int(data.vPointer)>=ptr2int(val.data.vPointer))return true;
     return false;
 }
 
@@ -558,6 +571,10 @@ variant& variant::operator=(const variant &val)
     case tArray:
         if(type!=val.type)data.vArray=new array<variant>;
         *(data.vArray)=*(val.data.vArray);
+        break;
+    case tFraction:
+        if(type!=val.type)data.vFraction=new fraction<intx>;
+        *(data.vFraction)=*(val.data.vFraction);
         break;
     default:
         data=val.data;

@@ -25,6 +25,7 @@ SOFTWARE.
 *****************************************************************************/
 
 #include "abyte_array.h"
+#include <ctype.h>
 
 using namespace alt;
 

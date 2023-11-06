@@ -33,6 +33,27 @@ SOFTWARE.
 
 namespace alt {
 
+    template<class T, uintz SIZE>
+    class fixedArray
+    {
+    public:
+        fixedArray(){ for(uintz i=0;i<SIZE;i++) data[i] = 0; }
+        fixedArray(T fill){ for(uintz i=0;i<SIZE;i++) data[i] = fill;}
+        fixedArray(T x, T y){ if(SIZE>0) data[0] = x; if(SIZE>1) data[1] = y;}
+        fixedArray(T x, T y, T z){ if(SIZE>0) data[0] = x; if(SIZE>1) data[1] = y; if(SIZE>2) data[2] = z;}
+
+        uintz size() const { return SIZE; }
+
+        T& operator[](uintz ind) {return data[ind];}
+        T* operator()() {return data;}
+
+        const T& operator[](uintz ind) const {return data[ind];}
+        const T* operator()() const {return data;}
+
+    private:
+        T data[SIZE];
+    };
+
     template <class T>
     class array
     {
@@ -40,18 +61,18 @@ namespace alt {
 
         struct Internal
         {
-            int size;
-            int alloc;
+            intz size;
+            intz alloc;
             int refcount;
             T *buff;
         };
 
         Internal *data;
 
-        Internal* newInternal(int size)
+        Internal* newInternal(intz size, bool overhead = true)
         {
             Internal *rv;
-            int alloc=alt::utils::upsize((uint32)size);
+            intz alloc=overhead ? alt::utils::upsize((uintz)size) : size;
             rv=new Internal;
             rv->buff=new T[alloc];
             rv->alloc=alloc;
@@ -93,7 +114,7 @@ namespace alt {
             data=val.data;
             if(data)data->refcount++;
         }
-        array(int size)
+        array(intz size)
         {
             data=newInternal(size);
         }
@@ -136,13 +157,13 @@ namespace alt {
             return *this;
         }
 
-        int size() const
+        intz size() const
         {
             if(!data)return 0;
             return data->size;
         }
 
-        int allocated() const
+        intz allocated() const
         {
             if(!data)return 0;
             return data->alloc;
@@ -166,7 +187,7 @@ namespace alt {
             return *this;
         }
 
-        array<T>& append(const T *buff, int count)
+        array<T>& append(const T *buff, intz count)
         {
             if(!count) return *this;
             if(!data)
@@ -189,7 +210,7 @@ namespace alt {
             return *this;
         }
 
-        array<T>& reserve(int size)
+        array<T>& reserve(intz size, bool overhead = true)
         {
             if(data && size<=data->alloc)
                 return *this;
@@ -208,9 +229,9 @@ namespace alt {
             return *this;
         }
 
-        array<T>& resize(int size)
+        array<T>& resize(intz size, bool overhead = true)
         {
-            reserve(size);
+            reserve(size, overhead);
             if(data)
             {
                 data->size=size;
@@ -223,7 +244,7 @@ namespace alt {
             cloneInternal();
             if(data)
             {
-                for(int i=0;i<data->size;i++)
+                for(intz i=0;i<data->size;i++)
                     data->buff[i]=val;
             }
             return *this;
@@ -253,7 +274,7 @@ namespace alt {
             return *this;
         }
 
-        array<T>& insert(int pos, const T &val)
+        array<T>& insert(intz pos, const T &val)
         {
             if(!data)data=newInternal(0);
 
@@ -280,7 +301,7 @@ namespace alt {
             return *this;
         }
 
-        array<T>& insert(int pos, const T *buff, int count)
+        array<T>& insert(intz pos, const T *buff, intz count)
         {
             if(!count) return *this;
             if(!data)data=newInternal(count);
@@ -321,7 +342,7 @@ namespace alt {
     #ifdef ENABLE_BUGEATER
             assert(!(!data || !data->size));
     #endif
-            if(!data || data->size) return T();
+            if(!data || !data->size) return T();
             return data->buff[data->size-1];
         }
 
@@ -350,7 +371,7 @@ namespace alt {
         int indexOf(const T &val)
         {
             if(!data)return -1;
-            for(int i=0;i<data->size;i++)
+            for(intz i=0;i<data->size;i++)
                 if(data->buff[i]==val)return i;
             return -1;
         }
@@ -358,8 +379,8 @@ namespace alt {
         void removeValue(const T &val)
         {
             if(!data)return;
-            int ind=0;
-            for(int i=0;i<data->size;i++)
+            intz ind=0;
+            for(intz i=0;i<data->size;i++)
             {
                 if(data->buff[i]==val)continue;
                 data->buff[ind]=data->buff[i];
@@ -368,14 +389,14 @@ namespace alt {
             data->size=ind;
         }
 
-        array<T>& cut(int ind, int size=1)
+        array<T>& cut(intz ind, intz size=1)
         {
             if(!data)return *this;
             if(!size || ind>=data->size)return *this;
             cloneInternal();
             if(ind+size>data->size)size=data->size-ind;
             data->size-=size;
-            for(int i=ind;i<data->size;i++)
+            for(intz i=ind;i<data->size;i++)
                 data->buff[i]=data->buff[i+size];
             return *this;
         }
@@ -415,7 +436,7 @@ namespace alt {
         {
             if(val.size()!=size())return false;
             if(!size())return true;
-            for(int i=0;i<data->size;i++)
+            for(intz i=0;i<data->size;i++)
             {
                 if(data->buff[i]!=val.data->buff[i])return false;
             }
@@ -426,7 +447,7 @@ namespace alt {
         {
             if(size()<val.size())return true;
             if(size()>val.size())return false;
-            for(int i=0;i<size();i++)
+            for(intz i=0;i<size();i++)
             {
                 if(data->buff[i]<val[i])return true;
                 if(data->buff[i]>val[i])return false;
@@ -436,17 +457,17 @@ namespace alt {
 
         bool contains(const T &val) const
         {
-            for(int i=0;i<size();i++)
+            for(intz i=0;i<size();i++)
             {
                 if(data->buff[i]==val)return true;
             }
             return false;
         }
 
-        array<int> sort(bool toBigger=false) const
+        array<intz> sort(bool toBigger=false) const
         {
-            array<int> rv;
-            int off, siz=size();
+            array<intz> rv;
+            intz off, siz=size();
 
             if(!siz)return rv;
             if(siz==1)
@@ -456,13 +477,13 @@ namespace alt {
             }
 
             rv.resize(siz*2);
-            int p2p=alt::imath::bsr32(siz-1);
+            intz p2p=alt::imath::bsrT(siz-1);
             bool dest=p2p&1;
 
             //сортируем от начала
             if(dest)off=0;
             else off=siz;
-            for(int i=0;i<siz;i+=2)
+            for(intz i=0;i<siz;i+=2)
             {
                 if(i+1==siz)
                 {
@@ -484,29 +505,29 @@ namespace alt {
                 }
             }
 
-            int old_off;
-            for(int i=1;i<p2p;i++)
+            intz old_off;
+            for(intz i=1;i<p2p;i++)
             {
                 dest=!dest;
                 old_off=off;
                 if(dest)off=0;
                 else off=siz;
 
-                int step=1<<i;
-                for(int j=0;j<siz;j+=step*2)
+                intz step=1<<i;
+                for(intz j=0;j<siz;j+=step*2)
                 {
                     if((j+step)>=siz) //без слияния
                     {
-                        for(int k=0;k<(siz-j);k++)
+                        for(intz k=0;k<(siz-j);k++)
                         {
                             rv[off+j+k]=rv[old_off+j+k];
                         }
                     }
                     else
                     {
-                        int k1=0,n1=step;
-                        int k2=0,n2=((j+step*2)>siz)?siz-j-step:step;
-                        for(int k=0;k<n1+n2;k++)
+                        intz k1=0,n1=step;
+                        intz k2=0,n2=((j+step*2)>siz)?siz-j-step:step;
+                        for(intz k=0;k<n1+n2;k++)
                         {
                             bool test = data->buff[rv[old_off+j+k1]]>data->buff[rv[old_off+j+step+k2]];
                             if(test == toBigger)
@@ -544,10 +565,10 @@ namespace alt {
             return rv;
         }
         //cproc_big ~ v1 > v2 -> true
-        array<int> sort(bool (*cproc_big)(const T&,const T&), bool toBigger=false) const
+        array<intz> sort(bool (*cproc_big)(const T&,const T&), bool toBigger=false) const
         {
-            array<int> rv;
-            int off, siz=size();
+            array<intz> rv;
+            intz off, siz=size();
 
             if(!siz)return rv;
             if(siz==1)
@@ -557,13 +578,13 @@ namespace alt {
             }
 
             rv.resize(siz*2);
-            int p2p=alt::imath::bsr32(siz-1);
+            intz p2p=alt::imath::bsrT(siz-1);
             bool dest=p2p&1;
 
             //сортируем от начала
             if(dest)off=0;
             else off=siz;
-            for(int i=0;i<siz;i+=2)
+            for(intz i=0;i<siz;i+=2)
             {
                 if(i+1==siz)
                 {
@@ -585,29 +606,29 @@ namespace alt {
                 }
             }
 
-            int old_off;
-            for(int i=1;i<p2p;i++)
+            intz old_off;
+            for(intz i=1;i<p2p;i++)
             {
                 dest=!dest;
                 old_off=off;
                 if(dest)off=0;
                 else off=siz;
 
-                int step=1<<i;
-                for(int j=0;j<siz;j+=step*2)
+                intz step=1<<i;
+                for(intz j=0;j<siz;j+=step*2)
                 {
                     if((j+step)>=siz) //без слияния
                     {
-                        for(int k=0;k<(siz-j);k++)
+                        for(intz k=0;k<(siz-j);k++)
                         {
                             rv[off+j+k]=rv[old_off+j+k];
                         }
                     }
                     else
                     {
-                        int k1=0,n1=step;
-                        int k2=0,n2=((j+step*2)>siz)?siz-j-step:step;
-                        for(int k=0;k<n1+n2;k++)
+                        intz k1=0,n1=step;
+                        intz k2=0,n2=((j+step*2)>siz)?siz-j-step:step;
+                        for(intz k=0;k<n1+n2;k++)
                         {
                             bool test = (*cproc_big)(data->buff[rv[old_off+j+k1]],data->buff[rv[old_off+j+step+k2]]);
                             if(test == toBigger)

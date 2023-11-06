@@ -75,6 +75,14 @@ namespace alt {
 
     namespace utils {
 
+        template<class T>
+        __inline bool signed_type()
+        {
+            T a = 0;
+            T b = a-1;
+            return b<a;
+        }
+
         __inline uintz upsize(uintz x)
         {
             const uintz MINSIZE = (sizeof(uintz)*8);

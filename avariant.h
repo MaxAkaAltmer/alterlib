@@ -31,6 +31,7 @@ SOFTWARE.
 #include "astring.h"
 #include "at_array.h"
 #include "abyte_array.h"
+#include "at_fraction.h"
 
 namespace alt {
 
@@ -75,6 +76,12 @@ namespace alt {
         {
             type=tInt;
             data.vInt=val;
+        }
+        variant(fraction<intx> val)
+        {
+            type=tFraction;
+            data.vFraction = new fraction<intx>;
+            *data.vFraction = val;
         }
     #ifndef ANDROID_NDK
         variant(realx val)
@@ -142,6 +149,9 @@ namespace alt {
         {
             switch(type)
             {
+            case tFraction:
+                delete data.vFraction;
+                break;
             case tString:
                 delete data.vString;
                 break;
@@ -168,6 +178,7 @@ namespace alt {
         realx toReal(bool *ok=NULL) const;
         byteArray toData(bool *ok=NULL) const;
         string toString(bool *ok=NULL) const;
+        fraction<intx> toFraction(bool *ok=NULL) const;
         hash<string, variant> toHash(bool *ok=NULL) const;
         array<variant> toArray(bool *ok=NULL) const;
         array<variant>* pointArray();
@@ -176,6 +187,7 @@ namespace alt {
         bool isValid() const {return type!=tInvalide;}
         bool isBool() const {return type==tBool;}
         bool isInt() const {return type==tInt;}
+        bool isFraction() const {return type==tFraction;}
         bool isReal() const {return type==tReal;}
         bool isString() const {return type==tString;}
         bool isData() const {return type==tData;}
@@ -192,10 +204,16 @@ namespace alt {
         }
 
         bool operator<(const variant &val) const;
-        bool operator>=(const variant &val) const;
+        bool operator>=(const variant &val) const
+        {
+            return !((*this)<val);
+        }
 
         bool operator<=(const variant &val) const;
-        bool operator>(const variant &val) const;
+        bool operator>(const variant &val) const
+        {
+            return !((*this)<=val);
+        }
 
         variant& operator += (const variant &val);
         variant& operator -= (const variant &val);
@@ -203,8 +221,8 @@ namespace alt {
         variant& operator /= (const variant &val);
         variant& operator %= (const variant &val);
 
-        variant neg_value();
-        variant not_value();
+        variant neg_value() const;
+        variant not_value() const;
 
     private:
 
@@ -213,6 +231,7 @@ namespace alt {
             tInvalide = 0,
             tBool,
             tInt,
+            tFraction,
             tReal,
             tString,
             tData,
@@ -228,6 +247,7 @@ namespace alt {
             bool vBool;
             intx vInt;
             realx vReal;
+            fraction<intx> *vFraction;
             string *vString;
             byteArray *vData;
             hash<string,variant> *vHash;

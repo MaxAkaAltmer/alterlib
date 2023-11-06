@@ -256,23 +256,35 @@ namespace alt {
         {
             return fraction(-num,den);
         }
-        fraction& operator++()
+        const fraction& operator++()
         {
             num += den;
             return *this;
         }
-        fraction& operator--()
+        const fraction& operator--()
         {
             num -= den;
             return *this;
         }
+        fraction operator++(int)
+        {
+            fraction rv = *this;;
+            num += den;
+            return rv;
+        }
+        fraction& operator--(int)
+        {
+            fraction rv = *this;;
+            num -= den;
+            return rv;
+        }
 
-        fraction& incNumerator()
+        fraction& preIncNumerator()
         {
             num ++;
             return *this;
         }
-        fraction& decNumerator()
+        fraction& preDecNumerator()
         {
             num --;
             return *this;

@@ -266,7 +266,7 @@ namespace alt {
         {
             if(val.data == data)
                 return true;
-            if(!data || !val.data || data->size!=val.data.size)
+            if(!data || !val.data || data->size != val.data->size)
                 return false;
             for(uintz i=0;i<data->size;i++)
             {
@@ -393,6 +393,8 @@ namespace alt {
 
         void resize(const dimensions<uintz> &val)
         {
+            if(dim==val)
+                return;
             dim = val;
             data.resize(dim.rawSize(),false);
             makeSteps();

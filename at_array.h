@@ -38,9 +38,19 @@ namespace alt {
     {
     public:
         fixedArray(){ for(uintz i=0;i<SIZE;i++) data[i] = 0; }
+        fixedArray(const fixedArray &val)
+        {
+            *this = val;
+        }
         fixedArray(T fill){ for(uintz i=0;i<SIZE;i++) data[i] = fill;}
         fixedArray(T x, T y){ if(SIZE>0) data[0] = x; if(SIZE>1) data[1] = y;}
         fixedArray(T x, T y, T z){ if(SIZE>0) data[0] = x; if(SIZE>1) data[1] = y; if(SIZE>2) data[2] = z;}
+
+        fixedArray& operator=(const fixedArray &val)
+        {
+            for(uintz i=0;i<SIZE;i++) data[i] = val.data[i];
+            return *this;
+        }
 
         uintz size() const { return SIZE; }
 
@@ -663,6 +673,47 @@ namespace alt {
             }
 
             rv.resize(siz);
+            return rv;
+        }
+
+        static array<T> evclid_gcd(array<T> a, array<T> b)
+        {
+            if(b.size())
+            {
+                a.div(b);
+                return evclid_gcd(b, a);
+            }
+            return a;
+        }
+
+        //poly division - numerator in *this and reminder will be in *this
+        array<T> div(const array<T>& den)
+        {
+            if(size() < den.size())
+                return array<T>();
+            if(!den.size()) //какой аналог бесконечности???
+                return *this;
+
+            array<T> rv(size()-den.size()+1);
+
+            for (intz i=size()-den.size(); i>=0; i--)
+            {
+                rv[i] = (*this)[i+den.size()-1] / den[den.size()-1];
+
+                for (intz j=i+den.size()-2; j>=i; j--)
+                {
+                        (*this)[j] -= den[j-i] * rv[i];
+                }
+            }
+
+            intz k = rv.size()-1;
+            while(k>=0 && !rv[k]) k--;
+            rv.resize(k+1);
+
+            k = size()-1;
+            while(k>=0 && !(*this)[k]) k--;
+            resize(k+1);
+
             return rv;
         }
 

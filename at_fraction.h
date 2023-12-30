@@ -38,14 +38,15 @@ namespace alt {
     {
     private:
         T num = 0;
-        T den = 0;
+        T den = 1;
 
-        T evclid_gcd(T a, T b)
+    public:
+
+        static T evclid_gcd(T a, T b)
         {
             return b ? evclid_gcd(b, a % b) : a;
         }
 
-    public:
         fraction() {}
         fraction(T n) { num = n; den = 1; }
         fraction(T n, T d) { num = n; den = d; }
@@ -54,11 +55,6 @@ namespace alt {
 
         void fix(bool sign_only = false)
         {
-            if(!num)
-            {
-                den = 0;
-                return;
-            }
             if(!sign_only)
             {
                 T d = evclid_gcd(den,num);
@@ -75,9 +71,31 @@ namespace alt {
             }
         }
 
-        bool inf()
+        bool is_inf() const
         {
-            return !num && den;
+            return num && !den;
+        }
+
+        bool is_integer() const
+        {
+            return den && !(num%den);
+        }
+
+        bool is_zero() const
+        {
+            return !num;
+        }
+
+        bool is_abs_one()
+        {
+            fix(true);
+            return den==1 && (num==1 || num==-1);
+        }
+
+        bool is_negative()
+        {
+            fix(true);
+            return num<0;
         }
 
         T numerator() const { return num; }
@@ -110,7 +128,7 @@ namespace alt {
 
         fraction& operator=(const T &val)
         {
-            num = val.num;
+            num = val;
             den = 1;
             return *this;
         }
@@ -315,12 +333,12 @@ namespace alt {
             return !(*this < val);
         }
 
-        string toString(bool get_integer = false)
+        string toString(bool separate_integer_part = false)
         {
             fix(true);
             if(den == 1 || (den==0 && num==0))
                 return string::fromInt(num);
-            if(get_integer && num>den)
+            if(separate_integer_part && num>den)
             {
                 if(num<0)
                     return string::fromInt(num/den)+string::fromInt(num%den)+"/"+string::fromInt(den);

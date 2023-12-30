@@ -100,7 +100,8 @@ namespace alt {
             if(data->refcount<2)return;
             Internal *tmp=newInternal(data->tabp2p);
             tmp->Values=data->Values;
-            for(int i=0;i<(1<<data->tabp2p);i++)tmp->Hash[i]=data->Hash[i];
+            for(int i=0;i<(1<<data->tabp2p);i++)
+                tmp->Hash[i]=data->Hash[i];
             deleteInternal();
             data=tmp;
         }
@@ -248,6 +249,17 @@ namespace alt {
             }
             return rv;
         }
+
+        bool cross(const set<T> &val)
+        {
+            for(int i=0;i<size();i++)
+            {
+                if(val.contains(data->Values[i]))
+                    return true;
+            }
+            return false;
+        }
+
         set& operator&=(const set<T> &val)
         {
             *this=(*this)&val;
@@ -265,7 +277,13 @@ namespace alt {
             return rv;
         }
         set operator+(const set<T> &val)
-        { //TODO: оптимизировать по разимеру
+        {
+            if(val.size()<size())
+            {
+                set<T> rv=*this;
+                rv.insert(val);
+                return rv;
+            }
             set<T> rv=val;
             rv.insert(*this);
             return rv;
@@ -343,7 +361,7 @@ namespace alt {
             return data->Values;
         }
 
-        T operator[](int ind) const
+        const T& operator[](int ind) const
         {
             return data->Values[ind];
         }
@@ -803,7 +821,8 @@ namespace alt {
             for(int i=0;i<data->Hash[tab].size();i++)
             {
                 int ind=data->Hash[tab][i];
-                if(data->Keys[ind]==keyTemp)return ind;
+                if(data->Keys[ind]==keyTemp)
+                    return ind;
             }
             return -1;
         }

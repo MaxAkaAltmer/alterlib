@@ -193,63 +193,79 @@ namespace imath {
 
     __inline uint32 sqrt32( uint32 val )
     {
-     uint32 tmp, mask, root=0;
+        uint32 tmp, mask, root=0;
 
-            if(!val)return root;
-            //считаем необходимое число циклов
-            //можно оптимизировать командой x86 - bsr
-            mask=val;
-            if(mask>>16){mask>>=16;tmp=16;}
-            else tmp=0;
-            if(mask>>8){mask>>=8;tmp+=8;}
-            if(mask>>4){mask>>=4;tmp+=4;}
-            if(mask>>2)tmp+=2;
-            mask=1<<tmp;
+        if(!val)return root;
+        //считаем необходимое число циклов
+        //можно оптимизировать командой x86 - bsr
+        mask=val;
+        if(mask>>16){mask>>=16;tmp=16;}
+        else tmp=0;
+        if(mask>>8){mask>>=8;tmp+=8;}
+        if(mask>>4){mask>>=4;tmp+=4;}
+        if(mask>>2)tmp+=2;
+        mask=1<<tmp;
 
-            do   //цикл вычисления корня
-            {
-                    tmp=root|mask;
-                    root>>=1;
-                    if(tmp<=val)
-                    {
-                            val-=tmp;
-                            root|=mask;
-                    }
-                    mask>>=2;
-            }while(mask);
+        do   //цикл вычисления корня
+        {
+                tmp=root|mask;
+                root>>=1;
+                if(tmp<=val)
+                {
+                        val-=tmp;
+                        root|=mask;
+                }
+                mask>>=2;
+        }while(mask);
 
-            if(root<val)root++;   //округление до ближайшего целого
+        if(root<val)root++;   //округление до ближайшего целого
 
-            return root;
+        return root;
     }
 
     __inline int32 ln32(uint32 val, uint32 rezfix)
     {
-     uint32 x, cnt;
-     uint64 tmp, curr,dop;
-            if(!val)return 0x80000000;
-            if(val==1)return 0;
-            //далее вычисления по ряду ln((1+x)/(1-x))=2*(x+x^3/3+x^5/5+x^7/7+....)
-            //до тех пор пока x^n/n!=0
-            //x=(val-1)/(val+1)
-            rezfix++;
-            x=((val-1)<<rezfix)/(val+1);
-            curr=tmp=x;
-            tmp*=tmp;
-            tmp>>=rezfix;
+        uint32 x, cnt;
+        uint64 tmp, curr,dop;
 
-            cnt=1;
-            do
-            {
-                    cnt+=2;
-                    curr*=tmp;
-                    dop=(curr/cnt)>>rezfix;
-                    x+=dop;
-                    curr>>=rezfix;
-            }
-            while(dop);
+        if(!val)return 0x80000000;
+        if(val==1)return 0;
+        //далее вычисления по ряду ln((1+x)/(1-x))=2*(x+x^3/3+x^5/5+x^7/7+....)
+        //до тех пор пока x^n/n!=0
+        //x=(val-1)/(val+1)
+        rezfix++;
+        x=((val-1)<<rezfix)/(val+1);
+        curr=tmp=x;
+        tmp*=tmp;
+        tmp>>=rezfix;
 
-            return x;
+        cnt=1;
+        do
+        {
+                cnt+=2;
+                curr*=tmp;
+                dop=(curr/cnt)>>rezfix;
+                x+=dop;
+                curr>>=rezfix;
+        }
+        while(dop);
+
+        return x;
+    }
+
+    template <class T>
+    __inline T pow(T x, T p)
+    {
+        if (p < 0)
+            return 1/pow(x,-p);
+
+        if (p == 0) return 1;
+        if (p == 1) return x;
+
+        T tmp = pow(x, p/2);
+
+        if (p%2 == 0) return tmp * tmp;
+        else return x * tmp * tmp;
     }
 
 } //namespace imath

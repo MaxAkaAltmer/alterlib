@@ -267,6 +267,91 @@ namespace alt {
         R vr;
     };
 
+    template <class T>
+    class shared
+    {
+    public:
+        shared()
+        {
+        }
+        explicit shared(T *val)
+        {
+            data = new Internal();
+            data->object = val;
+            data->refcount ++;
+        }
+        shared(const shared<T> &val)
+        {
+            if(val.data)
+            {
+                data = val.data;
+                data->refcount++;
+            }
+        }
+        shared& operator = (const shared<T> &val)
+        {
+            if(data == val.data)
+                return *this;
+            removeInternal();
+            if(val.data)
+            {
+                data = val.data;
+                data->refcount++;
+            }
+            return *this;
+        }
+        ~shared()
+        {
+            removeInternal();
+        }
+
+        void free()
+        {
+            removeInternal();
+        }
+
+        T* get()
+        {
+            if(!data)
+                return nullptr;
+            return data->object;
+        }
+
+        T* operator->() const
+        {
+            return data->object;
+        }
+
+        T& operator*()  const
+        {
+            return *(data->object);
+        }
+
+    private:
+        struct Internal
+        {
+            T *object = nullptr;
+            uint refcount = 0;
+        };
+
+        Internal *data = nullptr;
+
+        void removeInternal()
+        {
+            if(data)
+            {
+                data->refcount--;
+                if(!data->refcount)
+                {
+                    delete data->object;
+                    delete data;
+                }
+            }
+            data = nullptr;
+        }
+    };
+
+
 } //namespace alt
 
 #ifdef __GNUC__

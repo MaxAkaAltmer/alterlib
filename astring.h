@@ -771,6 +771,44 @@ namespace alt {
             return rv;
         }
 
+        template <class T>
+        static string poly2string(const array<T> &poly)
+        {
+            string rv;
+            for(intz i = poly.size()-1; i>0; i--)
+            {
+                if(!poly[i])
+                    continue;
+                string pow;
+                if(i>1)
+                    pow = "^"+string::fromInt(i);
+                if(poly[i]<0 || !rv.size())
+                {
+                    if(poly[i] == 1)
+                        rv += "x"+pow;
+                    else if(poly[i] == -1)
+                        rv += "-x"+pow;
+                    else
+                        rv += string::fromInt(poly[i])+"*x"+pow;
+                }
+                else
+                {
+                    if(poly[i] == 1)
+                        rv += "+x"+pow;
+                    else
+                        rv += "+"+string::fromInt(poly[i])+"*x"+pow;
+                }
+            }
+            if(poly.size() && poly[0])
+            {
+                if(poly[0]<0 || !rv.size())
+                    rv += string::fromInt(poly[0]);
+                else
+                    rv += "+"+string::fromInt(poly[0]);
+            }
+            return rv;
+        }
+
     };
 
 ///////////////////////////////////////////////////////////////////////////////

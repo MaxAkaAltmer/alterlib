@@ -336,6 +336,8 @@ namespace alt {
         string toString(bool separate_integer_part = false)
         {
             fix(true);
+            if(is_inf())
+                return "∞";
             if(den == 1 || (den==0 && num==0))
                 return string::fromInt(num);
             if(separate_integer_part && num>den)

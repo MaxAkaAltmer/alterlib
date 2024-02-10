@@ -224,7 +224,7 @@ namespace alt {
         {
             if(data && size<=data->alloc)
                 return *this;
-            Internal *tmp=newInternal(size);
+            Internal *tmp=newInternal(size, overhead);
             if(data && data->size)
             {
                 alt::utils::memcpy(tmp->buff,data->buff,data->size);
@@ -676,18 +676,18 @@ namespace alt {
             return rv;
         }
 
-        static array<T> evclid_gcd(array<T> a, array<T> b)
+        static array<T> poly_evclid_gcd(array<T> a, array<T> b)
         {
             if(b.size())
             {
-                a.div(b);
-                return evclid_gcd(b, a);
+                a.poly_div(b);
+                return poly_evclid_gcd(b, a);
             }
             return a;
         }
 
         //poly division - numerator in *this and reminder will be in *this
-        array<T> div(const array<T>& den)
+        array<T> poly_div(const array<T>& den)
         {
             if(size() < den.size())
                 return array<T>();
@@ -700,7 +700,7 @@ namespace alt {
             {
                 rv[i] = (*this)[i+den.size()-1] / den[den.size()-1];
 
-                for (intz j=i+den.size()-2; j>=i; j--)
+                for (intz j=i+den.size()-1; j>=i; j--)
                 {
                         (*this)[j] -= den[j-i] * rv[i];
                 }
@@ -713,6 +713,38 @@ namespace alt {
             k = size()-1;
             while(k>=0 && !(*this)[k]) k--;
             resize(k+1);
+
+            return rv;
+        }
+
+
+        array<T> poly_mul(const array<T>& val)
+        {
+            if(!val.size() || !size())
+                return array<T>();
+
+            array<T> rv(val.size()+size()-1);
+
+            rv.fill(0);
+            for(intz i=0;i<size();i++)
+                for(intz j=0;j<val.size();j++)
+                    rv[i+j] += (*this)[i]*val[j];
+
+            return rv;
+        }
+
+        static array<T> poly_primitive(uint n)
+        {
+            if(!n)
+                return array<T>();
+            array<T> rv(n+1);
+            rv[0] = -1;
+
+            for(uint i=1;i<n;i++)
+            {
+                rv[i] = 0;
+            }
+            rv[n] = 1;
 
             return rv;
         }

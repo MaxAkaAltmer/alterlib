@@ -35,6 +35,7 @@ using namespace alt;
 #include <pthread.h>
 #include <sched.h>
 #include <signal.h>
+#include <errno.h>
 
 struct internalSleepStream
 {
@@ -84,7 +85,7 @@ void* sleepStreamThread (void *p)
     return NULL;
 }
 
-AThread::AThread(delegate<int, void *> proc)
+thread::thread(delegate<int, void *> proc)
 {
     internalSleepStream *hand = new internalSleepStream;
     hand->complete_flag=false;
@@ -101,7 +102,7 @@ AThread::AThread(delegate<int, void *> proc)
     internal=hand;
 }
 
-AThread::AThread(int (*fun)(void*))
+thread::thread(int (*fun)(void*))
 {
     internalSleepStream *hand = new internalSleepStream;
     hand->complete_flag=false;
@@ -117,7 +118,7 @@ AThread::AThread(int (*fun)(void*))
     internal=hand;
 }
 
-void AThread::terminate()
+void thread::terminate()
 {
     internalSleepStream *hand = (internalSleepStream*)internal;
 
@@ -126,7 +127,7 @@ void AThread::terminate()
     pthread_kill(hand->hnd, SIGKILL);
 }
 
-AThread::~AThread()
+thread::~thread()
 {
     internalSleepStream *hand = (internalSleepStream*)internal;
 
@@ -156,7 +157,7 @@ AThread::~AThread()
     delete hand;
 }
 
-bool AThread::run(void *data, bool loop)
+bool thread::run(void *data, bool loop)
 {
     internalSleepStream *hand = (internalSleepStream*)internal;
 
@@ -182,7 +183,7 @@ bool AThread::run(void *data, bool loop)
     return true;
 }
 
-bool AThread::wait(int count, int us)
+bool thread::wait(int count, int us)
 {
     internalSleepStream *hand = (internalSleepStream*)internal;
 
@@ -211,7 +212,7 @@ bool AThread::wait(int count, int us)
     return success;
 }
 
-bool AThread::isOff()
+bool thread::isOff()
 {
     internalSleepStream *hand = (internalSleepStream*)internal;
     return hand->complete_flag || hand->exit_flag;
@@ -228,7 +229,7 @@ struct internalSemaphore
     pthread_mutex_t mutex;
 };
 
-ASemaphore::ASemaphore()
+semaphore::semaphore()
 {
     internalSemaphore *hand = new internalSemaphore;
     pthread_mutex_init(&hand->mutex,NULL);
@@ -236,26 +237,26 @@ ASemaphore::ASemaphore()
     internal=hand;
 }
 
-ASemaphore::~ASemaphore()
+semaphore::~semaphore()
 {
     internalSemaphore *hand = (internalSemaphore*)internal;
     pthread_mutex_destroy(&hand->mutex);
     delete hand;
 }
 
-void ASemaphore::lock()
+void semaphore::lock()
 {
     internalSemaphore *hand = (internalSemaphore*)internal;
     pthread_mutex_lock( &hand->mutex );
 }
 
-void ASemaphore::unlock()
+void semaphore::unlock()
 {
     internalSemaphore *hand = (internalSemaphore*)internal;
     pthread_mutex_unlock(&hand->mutex);
 }
 
-bool ASemaphore::canlock()
+bool semaphore::canlock()
 {
     internalSemaphore *hand = (internalSemaphore*)internal;
     if(pthread_mutex_trylock(&hand->mutex) == EBUSY)

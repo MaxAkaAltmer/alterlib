@@ -80,6 +80,25 @@ void time::fragmentation(
     if(usec)*usec=stamp%1000000;
 }
 
+time::time( int year,
+      int month,
+      int day,
+      int hour,
+      int min,
+      int sec,
+      int usec )
+{
+    struct tm val = {0};
+    val.tm_year = year-1900;
+    val.tm_mon = month-1;
+    val.tm_mday = day;
+    val.tm_sec = sec;
+    val.tm_min = min;
+    val.tm_hour = hour;
+    time_t t = mktime(&val);
+    stamp = t*1000000+usec;
+}
+
 string time::toString()
 {
     time_t t=stamp/1000000;

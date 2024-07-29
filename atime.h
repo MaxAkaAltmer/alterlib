@@ -39,6 +39,19 @@ namespace alt {
             stamp=us;
         }
 
+        time( int year,
+              int month,
+              int day,
+              int hour,
+              int min,
+              int sec,
+              int usec = 0 );
+
+        void addSeconds(uint64 seconds)
+        {
+            stamp += seconds*1000000;
+        }
+
         time(const time &val){*this=val;}
 
         time& operator=(const time &val)

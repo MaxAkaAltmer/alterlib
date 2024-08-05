@@ -31,6 +31,7 @@ SOFTWARE.
 #else
     #include <unistd.h>
     #include <dirent.h>
+    #include <stdio.h>
 #endif
 
 #include <sys/types.h>

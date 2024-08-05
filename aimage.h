@@ -54,7 +54,7 @@ namespace alt {
     public:
         image();
         image(const image &img);
-        image(int w, int h, const void *buff=NULL, int d=1);
+        image(int w, int h, const void *buff = nullptr, int d = 1);
         ~image();
 
         void deepCopy(const image &img)

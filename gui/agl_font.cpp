@@ -765,7 +765,7 @@ void AGLFont::checkBlocksLifeCicle()
 {
     while(cache.Size()>blocklimit)
     {
-        alt::dualVal<alt::string,int> el=cache.ForRemove();
+        alt::pair<alt::string,int> el=cache.ForRemove();
         cache.Delete(fonts[el.left()][el.right()].cacheIndex);
 
         alt::array<AGLTexture*> texs=fonts[el.left()][el.right()].textures;
@@ -845,7 +845,7 @@ void AGLFont::createBlock(int index)
 
     //запишем блок
     if(str_height>block.height)block.height=str_height;
-    block.cacheIndex=cache.Push(alt::dualVal<alt::string,int>(curr_font,index));
+    block.cacheIndex=cache.Push(alt::pair<alt::string,int>(curr_font,index));
     fonts[curr_font][index]=block;
 
     onEndBlock();

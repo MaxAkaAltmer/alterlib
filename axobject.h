@@ -119,7 +119,7 @@ namespace alt {
         array<xobject*> listItemsByName(string name)
             {if(m_items.contains(name))return m_items[name];return array<xobject*>();}
         array<xobject*> listAllItems(){return m_item_order;}
-        int countItems(string name){if(!m_items.contains(name))return 0;return m_items[name].size();}
+        int countItems(string name){if(!m_items.contains(name))return 0; return m_items[name].size();}
 
     private:
 

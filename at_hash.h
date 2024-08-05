@@ -379,7 +379,7 @@ namespace alt {
     /////////////////////////////////////////////////////////////////////////////////////////
 
     template <class K, class V>
-    class map
+    class map //based on AVL tree
     {
     private:
 
@@ -502,7 +502,7 @@ namespace alt {
             return find(n->right,key);
         }
 
-        Node* findByIndex(Node *n, uintz &index)
+        Node* findByIndex(Node *n, uintz &index) const
         {
             if(!n)
                 return nullptr;

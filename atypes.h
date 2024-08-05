@@ -73,6 +73,11 @@ typedef  unsigned short     charx;
 
 namespace alt {
 
+    __inline uint64 roundup(uint64 size, uint64 align)
+    {
+        return ((size+align-1)/align)*align;
+    }
+
     namespace utils {
 
         template<class T>
@@ -212,6 +217,11 @@ namespace alt {
             return -state;
         }
 
+        void clear()
+        {
+            state = 0;
+        }
+
         operator int(){return state;}
 
     protected:
@@ -220,15 +230,15 @@ namespace alt {
 
 
     template <typename L, typename R>
-    class dualVal
+    class pair
     {
     public:
 
-        dualVal(){vl = L(); vr = R();}
-        ~dualVal(){}
-        dualVal(L left_val, R right_val){vl=left_val;vr=right_val;}
-        dualVal(const dualVal &val){*this=val;}
-        dualVal& operator=(const dualVal &val){vl=val.vl;vr=val.vr;return *this;}
+        pair(){vl = L(); vr = R();}
+        ~pair(){}
+        pair(L left_val, R right_val){vl=left_val;vr=right_val;}
+        pair(const pair &val){*this=val;}
+        pair& operator=(const pair &val){vl=val.vl;vr=val.vr;return *this;}
 
         L& left(){return vl;}
         R& right(){return vr;}
@@ -242,16 +252,16 @@ namespace alt {
     };
 
     template <typename L, typename M, typename R>
-    class trioVal
+    class trio
     {
     public:
 
-        trioVal(){}
-        ~trioVal(){}
-        trioVal(L left_val, M middle_val, R right_val){vl=left_val;vm=middle_val;vr=right_val;}
-        trioVal(const dualVal<L,R> &val){vl=val.left();vr=val.right();}
-        trioVal(const trioVal &val){*this=val;}
-        trioVal& operator=(const trioVal &val){vl=val.vl;vm=val.vm;vr=val.vr;return *this;}
+        trio(){}
+        ~trio(){}
+        trio(L left_val, M middle_val, R right_val){vl=left_val;vm=middle_val;vr=right_val;}
+        trio(const pair<L,R> &val){vl=val.left();vr=val.right();}
+        trio(const trio &val){*this=val;}
+        trio& operator=(const trio &val){vl=val.vl;vm=val.vm;vr=val.vr;return *this;}
 
         L& left(){return vl;}
         M& middle(){return vm;}

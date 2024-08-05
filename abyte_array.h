@@ -37,6 +37,7 @@ namespace alt {
     {
     protected:
 
+        //todo: make like string
         array<uint8> data;
 
     public:

@@ -34,8 +34,8 @@ SOFTWARE.
 
 namespace alt {
 
-    typedef dualVal<variant,variant> dualVar;
-    typedef trioVal<variant,variant,variant> tribleVar;
+    typedef pair<variant,variant> dualVar;
+    typedef trio<variant,variant,variant> tribleVar;
 
     class hexEditObject
     {

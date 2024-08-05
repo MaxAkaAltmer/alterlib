@@ -143,7 +143,7 @@ alt::byteArray _arch_data_block_compress_best(const void *data_p, int size)
         result.append((char)ARCH_HEAD_UNCODED);
         result.append((char*)data,size);
         break;
-    };
+    }
 
     return result;
 }

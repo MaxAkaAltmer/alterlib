@@ -30,6 +30,8 @@ SOFTWARE.
 #if !defined(__linux) && !defined(__APPLE__)
     #include <winsock2.h>
     #include <process.h>
+
+    #pragma comment(lib, "ws2_32.lib")
 #else
     #include <sys/socket.h>
     #include <netinet/in.h>

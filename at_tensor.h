@@ -357,18 +357,6 @@ namespace alt {
         T* operator()() { return data();}
         const T* operator()() const { return data();}
 
-        template <typename... I>
-        T& operator[](I ...args)
-        {
-            uintz i = 0;
-            uintz offset = 0;
-            ([&]{
-                offset += args * step[i];
-                i ++;
-            }(), ...);
-            return data[offset];
-        }
-
         T& operator[](const dimensions<uintz> &off)
         {
             uintz offset = 0;

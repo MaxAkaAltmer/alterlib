@@ -73,9 +73,16 @@ typedef  unsigned short     charx;
 
 namespace alt {
 
-    __inline uint64 roundup(uint64 size, uint64 align)
+    template<class T>
+    __inline T roundup(T size, T align)
     {
         return ((size+align-1)/align)*align;
+    }
+
+    template<class T>
+    __inline T roundup_div(T size, T align)
+    {
+        return (size+align-1)/align;
     }
 
     namespace utils {

@@ -56,6 +56,8 @@ namespace alt {
             return (object->*method)(args...);
         }
 
+        bool empty() { return !object; }
+
     private:
         delegateBase *object;
         RT (delegateBase::*method)(AT...);
@@ -84,6 +86,8 @@ namespace alt {
             if(!object)return;
             (object->*method)(args...);
         }
+
+        bool empty() { return !object; }
 
     private:
         delegateBase *object;

@@ -37,6 +37,10 @@ string computeCluster::retCodeToString(retCode code)
             return "Error: Symbol name/identifier passed to the API cal is not a valid name or identifier or has name conflicts.";
         case errorCodeDeviceUnavailable:
             return "Error: Device is busy or unavailable at the current time.";
+        case errorCodeCompilationFail:
+            return "Error: Kernel compilation failed.";
+        case errorCodeLaunchFail:
+            return "Error: Kernel launch failed.";
 
         }
         return "Error: Undefined code "+string::fromInt(code.error())+".";

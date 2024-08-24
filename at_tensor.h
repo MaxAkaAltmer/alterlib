@@ -83,6 +83,14 @@ namespace alt {
             data->refcount++;
         }
 
+        template<class X>
+        dimensions(const dimensions<X> &val)
+        {
+            data = newInternal(val.size());
+            for(T i=1;i<data->size;i++)
+                data->buff[i] = val[i];
+        }
+
         template <typename... I>
         dimensions(I ...args)
         {
@@ -105,6 +113,16 @@ namespace alt {
             data=val.data;
             if(data)
                 data->refcount++;
+            return *this;
+        }
+
+        template<class X>
+        dimensions& operator=(const dimensions<X> &val)
+        {
+            deleteInternal();
+            data = newInternal(val.size());
+            for(T i=1;i<data->size;i++)
+                data->buff[i] = val.data->buff[i];
             return *this;
         }
 
@@ -140,6 +158,12 @@ namespace alt {
             for(T i=1;i<data->size;i++)
                 rv *= data->buff[i];
             return rv;
+        }
+
+        void roundup(dimensions div)
+        {
+            for(T i=1;i<data->size && i<div.data->size;i++)
+                data->buff[i] = alt::roundup(data->buff[i],div.data->buff[i]);
         }
 
         T size() const

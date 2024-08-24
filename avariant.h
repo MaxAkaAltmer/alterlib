@@ -184,6 +184,17 @@ namespace alt {
         array<variant>* pointArray();
         void* toPointer(bool *ok=NULL) const;
 
+        uintx size() const;
+
+        template<class X>
+        X deserialize() const
+        {
+            X rv;
+            if(isData() && sizeof(X)==data.vData->size())
+               utils::memcpy((uint8*)&rv,(*data.vData)(),sizeof(X));
+            return rv;
+        }
+
         bool isValid() const {return type!=tInvalide;}
         bool isBool() const {return type==tBool;}
         bool isInt() const {return type==tInt;}

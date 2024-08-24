@@ -148,6 +148,26 @@ string variant::toString(bool *ok) const
     return string();
 }
 
+uintx variant::size() const
+{
+    switch(type)
+    {
+    case tString:
+        return data.vString->size();
+    case tData:
+        return data.vData->size();
+    case tArray:
+        return data.vArray->size();
+    case tInvalide:
+        return 0;
+    case tHash:
+        return data.vHash->size();
+    default:
+        break;
+    }
+    return 0;
+}
+
 byteArray variant::toData(bool *ok) const
 {
     if(isString())

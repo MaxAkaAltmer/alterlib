@@ -167,8 +167,8 @@ namespace alt {
     protected:
         int open_flags;
 
-        virtual int read_hand(void *buff, int size){return 0;}
-        virtual int write_hand(const void *buff, int size){return 0;}
+        virtual int read_hand(void *buff, int size) = 0;
+        virtual int write_hand(const void *buff, int size) = 0;
     };
 
     //////////////////////////////////////////////////////////////////////

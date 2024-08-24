@@ -8,6 +8,9 @@
 #include "../adelegate.h"
 #include <typeinfo>
 
+//todo: AMD HIP CLuster
+//todo: some sort of LLVM Cluster (better the internal OpenCL for CPUs with JIT and universal interpreator mode)
+
 namespace alt::compute {
 
 class computeCluster;
@@ -21,11 +24,10 @@ struct computeMemory
     uint64 size = 0;
 };
 
-
 struct deviceInfo
 {
     string name;
-    int index;
+    int index = -1;
 
     string api_type;
     string api_version;
@@ -33,14 +35,14 @@ struct deviceInfo
     dimensions<uint64> max_threads_per_dimension;
     uint64 max_threads_total;
     dimensions<uint64> max_grid_size;
-    uint64 max_warp_size = 0;
+    uint64 max_warp_size = 1;
     uint64 total_cores = 1;
 
     uint64 global_memory_size;
     uint64 shared_memory_size = 0;
     uint64 constant_memory_size = 0;
 
-    hash<string,variant> api_related;
+    map<string,variant> api_related;
 
     string toText()
     {
@@ -65,7 +67,19 @@ enum computeErrorCodes
     errorCodeWrongDestruction = -6,
     errorCoderOutOfResources = -7,
     errorCodeInvalidSymbol = -8,
-    errorCodeDeviceUnavailable = -9
+    errorCodeDeviceUnavailable = -9,
+    errorCodeCompilationFail = -10,
+    errorCodeLaunchFail = -11
+};
+
+struct compileOptions
+{
+    array<string> options;
+
+    hash<string,variant> api_related;
+
+    hash<string,string> headers;
+    hash<string,byteArray> libraries;
 };
 
 class computeCluster
@@ -88,13 +102,13 @@ public:
         callback_memory = callback;
     }
 
-    virtual computeKernel kernelCompile(int device, const string &name, const string &code, const string &options = string()) = 0;
+    virtual computeKernel kernelCompile(int device, const string &name, const string &code, const compileOptions *opt = nullptr) = 0;
     virtual retCode kernelCall(const computeKernel &hand, dimensions<uint64> threads_block, dimensions<uint64> works_area) = 0;
     virtual retCode kernelConfig(computeKernel &hand, const string &symbol, const byteArray &data) = 0;
     virtual retCode kernelDestroy(computeKernel &hand) = 0;
 
     virtual computeMemory memAlloc(int device, uint64 size, void *host_data = nullptr, uint64 host_size = 0, int queue = 0, void *callback_user_data = nullptr) = 0;
-    virtual retCode memFree(computeMemory &hand) = 0;
+    virtual retCode memFree(computeMemory &hand, int queue = 0) = 0;
 
     virtual retCode memHostRead(void *host_dst, computeMemory &src, uint64 size, uint64 src_offset = 0, int queue = 0, void *callback_user_data = nullptr) = 0;
     virtual retCode memHostWrite(computeMemory &dst, void *host_src, uint64 size, uint64 dst_offset = 0, uint64 host_size = 0, int queue = 0, void *callback_user_data = nullptr) = 0;

@@ -513,7 +513,7 @@ namespace alt {
             if(index >= n->count-(n->right?n->right->count:0))
             {
                 index -= n->count-(n->right?n->right->count:0);
-                return findByIndex(n->left,index);
+                return findByIndex(n->right,index);
             }
             index -= (n->left?n->left->count:0);
             return n;
@@ -863,7 +863,7 @@ namespace alt {
         {
             if(!n)
                 return;
-            std::cout << "{" << n->key << ",";
+            std::cout << "{" << n->key() << ",";
             printNode(n->left);
             std::cout << ",";
             printNode(n->right);
@@ -1415,11 +1415,11 @@ namespace alt {
         {
             return data->Keys.size();
         }
-        K key(int ind) const
+        const K& key(int ind) const
         {
             return data->Keys[ind];
         }
-        V value(int ind) const
+        const V& value(int ind) const
         {
             return data->Values[ind];
         }

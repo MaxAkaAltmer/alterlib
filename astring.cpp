@@ -73,7 +73,7 @@ string string::trimmed()
     int n;
     for(n=data->size-1;n>=0;n--)
     {
-        if(!isspace(data->buff[n]))break;
+        if(!isspace(data->buff[n]) && data->buff[n])break;
     }
     if(n<i)return string();
     return mid(i,n-i+1);

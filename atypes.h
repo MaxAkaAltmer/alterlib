@@ -158,21 +158,129 @@ namespace alt {
             for(intz i=0;i<num;i++)dst[i]=c;
         }
 
+        //Float16 code origin: https://github.com/ankan-ban/GemmTest/blob/master/utils.h (MIT License)
+        __inline uint16 fp32_to_fp16(float f32)
+        {
+            uint32 f = *(uint32*)& f32;
+
+            uint16 f16 = 0;
+
+            f16 |= (f >> 16) & 0x8000; // copy sign bit
+
+            uint32 e = (f >> 23) & 0xff; // extract exponent
+            uint32 m = f & 0x7fffff; // extract mantissa
+
+            if (e == 255) {
+                // dealing with a special here
+                if (m == 0) {
+                    // infinity
+                    return (f16 | 0x7c00); // e=31, m=0, preserve sign
+                }
+                else {
+                    // NaN
+                    return 0x7e00; // e=31, m=0x200, s=0
+                }
+            }
+            else if ((e >= 143) || ((e == 142) && (m > 0x7fe000))) {
+                // not representable in FP16, so return infinity
+                return (f16 | 0x7c00); // e=31, m=0, preserve sign
+            }
+            else if ((e <= 101) || ((e == 102) && (m < 0x2000))) {
+                // underflow to 0
+                return f16;
+            }
+            else if (e <= 112) {
+                // denorm situation
+                m |= 0x800000; // add leading 1
+
+                               // the 24-bit mantissa needs to shift 14 bits over to
+                               // fit into 10 bits, and then as many bits as the exponent
+                               // is below our denorm exponent
+                               //  127 (fp32 bias)
+                               // -  e (actual fp32 exponent)
+                               // + 24 (fp32 mantissa bits including leading 1)
+                               // - 10 (fp16 mantissa bits not including leading 1)
+                               // - 15 (fp16 denorm exponent)
+                               // = 126 - e
+                m >>= (126 - e);
+
+                return (uint16)(f16 | m); // e=0, preserve sign
+            }
+            else {
+                // can convert directly to fp16
+                e -= 112; // 127 - 15 exponent bias
+                m >>= 13; // 23 - 10 mantissa bits
+                return (uint16)(f16 | (e << 10) | m);
+            }
+        }
+
+        //Float16 code origin: https://github.com/ankan-ban/GemmTest/blob/master/utils.h (MIT License)
+        __inline float fp16_to_fp32(uint16 f16)
+        {
+            uint32 f = f16;
+
+            uint32 f32 = 0;
+
+            f32 |= (f << 16) & 0x80000000; // copy sign bit
+
+            uint32 e = (f >> 10) & 0x1f; // extract exponent
+            uint32 m = f & 0x3ff; // extract mantissa
+
+            if (e == 0) {
+                if (m == 0) {
+                    // nothing to do; it's already +/- 0
+                }
+                else {
+                    // denorm
+                    e = 113;
+                    m <<= 13;
+                    // shift mantissa until the top bit is 1<<23
+                    // note that we've alrady guaranteed that the
+                    // mantissa is non-zero and that the top bit is
+                    // at or below 1<<23
+                    while (!(m & 0x800000)) {
+                        e--;
+                        m <<= 1;
+                    }
+                    m &= 0x7fffff;
+
+                    f32 |= (e << 23) | m;
+                }
+            }
+            else if (e == 31) {
+                // FP special
+                if (m == 0) {
+                    // Inf
+                    f32 |= 0x7f800000; // e=255, m=0, preserve sign
+                }
+                else {
+                    // NaN
+                    f32 = 0x7fc00000; // e=255, m=0x800000, s=0
+                }
+            }
+            else {
+                e += 112; // 127-15 exponent bias
+                m <<= 13; // 23-10 mantissa bits
+                f32 |= (e << 23) | m;
+            }
+            return *(float*)& f32;
+        }
+
     } // namespace utils
 
-    inline uintz ptr2int(void *val)
+    __inline uintz ptr2int(void *val)
     {
         return reinterpret_cast<uintz>(val);
     }
 
     template<class T>
-    inline T* int2ptr(uintz val)
+    __inline T* int2ptr(uintz val)
     {
         return reinterpret_cast<T*>(val);
     }
 
     template<class T>
-    inline T unaligned_read(void *buff)
+    __inline T unaligned_read(void *buff)
     {
         T rv;
         for(uint i=0;i<sizeof(T) && i<sizeof(void*);i++)
@@ -183,7 +291,7 @@ namespace alt {
     }
 
     template<class T>
-    inline void unaligned_write(void *buff, T val)
+    __inline void unaligned_write(void *buff, T val)
     {
         for(uint i=0;i<sizeof(T) && i<sizeof(void*);i++)
         {
@@ -250,8 +358,8 @@ namespace alt {
         L& left(){return vl;}
         R& right(){return vr;}
 
-        L left() const {return vl;}
-        R right() const {return vr;}
+        const L& left() const {return vl;}
+        const R& right() const {return vr;}
 
     private:
         L vl;

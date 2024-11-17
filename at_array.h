@@ -124,7 +124,7 @@ namespace alt {
             data=val.data;
             if(data)data->refcount++;
         }
-        array(intz size)
+        explicit array(intz size)
         {
             data=newInternal(size);
         }
@@ -134,6 +134,7 @@ namespace alt {
             data->buff[0]=v1;
             data->buff[1]=v2;
         }
+
         array& operator=(const array<T> &val)
         {
             if(data==val.data)return *this;
@@ -388,11 +389,16 @@ namespace alt {
 
         void removeValue(const T &val)
         {
-            if(!data)return;
+            if(!data)
+                return;
+            if(indexOf(val)<0)
+                return;
+            cloneInternal();
             intz ind=0;
             for(intz i=0;i<data->size;i++)
             {
-                if(data->buff[i]==val)continue;
+                if(data->buff[i]==val)
+                    continue;
                 data->buff[ind]=data->buff[i];
                 ind++;
             }

@@ -127,6 +127,31 @@ namespace imath {
             return retval;
     }
 
+    __inline uint32 max_div_p2(uint32 val)
+    {
+        uint32 rv = 0;
+        if(!val) return 1;
+        if(!(val&0xffff)) { rv += 16; val >>= 16; }
+        if(!(val&0xff)) { rv += 8; val >>= 8; }
+        if(!(val&0xf)) { rv += 4; val >>= 4; }
+        if(!(val&0x3)) { rv += 2; val >>= 2; }
+        if(!(val&0x1)) { rv += 1; }
+        return uint32(1) << rv;
+    }
+
+    __inline uint64 max_div_p2(uint64 val)
+    {
+        uint64 rv = 0;
+        if(!val) return 1;
+        if(!(val&0xffffffff)) { rv += 32; val >>= 32; }
+        if(!(val&0xffff)) { rv += 16; val >>= 16; }
+        if(!(val&0xff)) { rv += 8; val >>= 8; }
+        if(!(val&0xf)) { rv += 4; val >>= 4; }
+        if(!(val&0x3)) { rv += 2; val >>= 2; }
+        if(!(val&0x1)) { rv += 1; }
+        return uint64(1) << rv;
+    }
+
     template <class T>
     uint32 bsrT(T val)
     {
@@ -144,7 +169,7 @@ namespace imath {
 
     __inline uint16 bswap16(uint16 x)
     {
-        return (x>>8) | (x<<8);
+        return uint16((x>>8) | (x<<8));
     }
 
     __inline uint32 bswap32by16(uint32 x)
@@ -160,6 +185,11 @@ namespace imath {
     __inline uint32 bswap32(uint32 x)
     {
         return (x>>24) | ((x>>8)&0x0000FF00L) | ((x&0x0000FF00L)<<8) | (x<<24);
+    }
+
+    __inline int32 bswap32(int32 x)
+    {
+        return int32(bswap32(uint32(x)));
     }
 
     __inline uint64 bswap64(uint64 x)

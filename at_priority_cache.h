@@ -32,7 +32,7 @@ SOFTWARE.
 namespace alt {
 
     template <class T>
-    struct priorityNode
+    struct cacheNode
     {
         T data;
         int prev;
@@ -40,16 +40,16 @@ namespace alt {
     };
 
     template <class T>
-    class priorityCache
+    class cache
     {
     private:
 
-        array< priorityNode<T> > list;
+        array< cacheNode<T> > list;
         array<int> free;
         volatile int first,last;
 
     public:
-        priorityCache(){last=first=-1;}
+        cache(){last=first=-1;}
 
         int Push(T val);
 
@@ -65,10 +65,10 @@ namespace alt {
     };
 
     template <class T>
-    int priorityCache<T>::Push(T val)
+    int cache<T>::Push(T val)
     {
      int ind;
-     priorityNode<T> tmp;
+     cacheNode<T> tmp;
 
         if(free.size())
         {
@@ -94,7 +94,7 @@ namespace alt {
     }
 
     template <class T>
-    void priorityCache<T>::Update(int ind)
+    void cache<T>::Update(int ind)
     {
         if(list.size()<=ind || ind<0)return;
         //if(!list[ind].data)return;
@@ -117,7 +117,7 @@ namespace alt {
     }
 
     template <class T>
-    void priorityCache<T>::Delete(int ind)
+    void cache<T>::Delete(int ind)
     {
         if(list.size()<=ind || ind<0)return;
         //if(!list[ind].data)return;
@@ -143,20 +143,20 @@ namespace alt {
     }
 
     template <class T>
-    T priorityCache<T>::ForRemove()
+    T cache<T>::ForRemove()
     {
         if(first<0)return T();
         return list[first].data;
     }
 
     template <class T>
-    int priorityCache<T>::Size() const
+    int cache<T>::Size() const
     {
         return list.size()-free.size();
     }
 
     template <class T>
-    void priorityCache<T>::Clear()
+    void cache<T>::Clear()
     {
         list.clear();free.clear();last=first=-1;
     }

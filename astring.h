@@ -96,7 +96,7 @@ namespace alt {
             *this=string(str);
             return *this;
         }
-        operator QString()
+        operator QString() const
         {
             return QString::fromUtf8(data->buff);
         }
@@ -126,7 +126,7 @@ namespace alt {
             if(size)alt::utils::memcpy(data->buff,str,size);
         }
 
-        string(int size, bool makeEmpty)
+        explicit string(int size, bool makeEmpty)
         {
             data=newInternal(size);
             if(makeEmpty)

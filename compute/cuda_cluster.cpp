@@ -465,6 +465,12 @@ retCode cudaCluster::kernelCall(const computeKernel &hand, dimensions<uint64> th
 
     cudaStream_t stream = hand.queue>1 ? stuff->streams[hand.device][hand.queue] : nullptr;
 
+    if(smem_size > (48 << 10))
+    {
+        if(cuFuncSetAttribute(ks->kernel, CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES, smem_size)!=CUDA_SUCCESS)
+            return setError(errorCodeInvalidValue);
+    }
+
     if(cuLaunchKernel(ks->kernel,
                    grid.x, grid.y, grid.z,
                    threads_block[0], threads_block[1], threads_block[2],

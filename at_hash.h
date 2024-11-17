@@ -31,6 +31,8 @@ SOFTWARE.
 #include "amath_int.h"
 #include "atypes.h"
 
+#include <initializer_list>
+
 #ifdef ALT_DEBUG_ENABLE
     #include <iostream>
 #endif
@@ -1227,6 +1229,14 @@ namespace alt {
             data=val.data;
             data->refcount++;
         }
+
+        hash(std::initializer_list<pair<K,V>> list)
+        {
+            data=newInternal(ATHASH_MIN_TABCOUNT);
+            for(auto it: list)
+                insert(it.left(),it.right());
+        }
+
         hash& operator=(const hash<K,V> &val)
         {
             if(val.data==data)return *this;
@@ -1308,7 +1318,8 @@ namespace alt {
                 for(int i=0;i<data->Hash[tab].size();i++)
                 {
                     ind=data->Hash[tab][i];
-                    if(data->Keys[ind]==key && data->Values[ind]==val)return ind;
+                    if(data->Keys[ind]==key && data->Values[ind]==val)
+                        return ind;
                 }
             }
             ind=makeEntry(key);
@@ -1428,16 +1439,16 @@ namespace alt {
             cloneInternal();
             return data->Values[ind];
         }
-        V last() const
+        const V& last() const
         {
             return data->Values.last();
         }
 
-        array<K> keys() const
+        const array<K>& keys() const
         {
             return data->Keys;
         }
-        array<V> values() const
+        const array<V>& values() const
         {
             return data->Values;
         }
@@ -1450,14 +1461,14 @@ namespace alt {
             for(int i=0;i<data->Hash[tab].size();i++)
             {
                 int ind=data->Hash[tab][i];
-                if(data->Keys[ind]==key)rv.append(data->Values[ind]);
+                if(data->Keys[ind]==key)
+                    rv.append(data->Values[ind]);
             }
             return rv;
         }
 
-        array<int> index_list(const K &key) const
+        const array<int>& index_list(const K &key) const
         {
-            array<V*> rv;
             uint32 code=aHash(key);
             int tab=code&((1<<data->tabp2p)-1);
             return data->Hash[tab];

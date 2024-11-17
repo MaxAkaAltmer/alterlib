@@ -141,7 +141,7 @@ protected:
 
     //формат строки: Type:Size
     alt::hash<alt::string, alt::hash<int,aglFontBlock> > fonts;
-    alt::priorityCache<alt::pair<alt::string,int> > cache;
+    alt::cache<alt::pair<alt::string,int> > cache;
     int blocklimit;
 
     //списки вершин и текстурных координат

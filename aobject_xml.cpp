@@ -4,7 +4,7 @@
 
 using namespace alt;
 
-bool _ameta_rxml_parcer_recu(object *obj, TiXmlElement *el)
+static bool _ameta_rxml_parcer_recu(object *obj, TiXmlElement *el)
 {
     if(!el)return true;
     string node_name=el->Value();
@@ -61,7 +61,7 @@ bool _ameta_rxml_parcer_recu(object *obj, TiXmlElement *el)
     return true;
 }
 
-bool _ameta_rxml_parcer(object *obj, string &data)
+static bool _ameta_rxml_parcer(object *obj, string &data)
 {
     TiXmlDocument doc;
 
@@ -74,7 +74,7 @@ bool _ameta_rxml_parcer(object *obj, string &data)
     return _ameta_rxml_parcer_recu(obj,doc.FirstChildElement());
 }
 
-bool _ameta_rxml_streamer_recu(object *obj, TiXmlElement *el)
+static bool _ameta_rxml_streamer_recu(object *obj, TiXmlElement *el)
 {
     array<string> list=obj->listAttributes();
     for(int i=0;i<list.size();i++)
@@ -101,7 +101,7 @@ bool _ameta_rxml_streamer_recu(object *obj, TiXmlElement *el)
     return true;
 }
 
-bool _ameta_rxml_streamer(object *obj, string &fname, bool standalone)
+static bool _ameta_rxml_streamer(object *obj, string &fname, bool standalone)
 {
     TiXmlDocument doc;
 
@@ -159,6 +159,11 @@ bool object_xml::load(string fname)
     clear();
 
     return _ameta_rxml_parcer(root_ptr,data);
+}
+
+bool object_xml::save(string fname, object *root, bool standalone)
+{
+    return _ameta_rxml_streamer(root,fname,standalone);
 }
 
 bool object_xml::save(string fname, bool standalone)

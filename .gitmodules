@@ -1,3 +1,7 @@
 [submodule "external/json"]
 	path = external/json
 	url = https://github.com/MaxAkaAltmer/json.git
+[submodule "external/imgui"]
+	path = external/imgui
+	url = https://github.com/MaxAkaAltmer/imgui.git
+	branch = docking

@@ -5,3 +5,6 @@
 	path = external/imgui
 	url = https://github.com/MaxAkaAltmer/imgui.git
 	branch = docking
+[submodule "external/GetComPortList"]
+	path = external/GetComPortList
+	url = https://github.com/MaxAkaAltmer/GetComPortList.git

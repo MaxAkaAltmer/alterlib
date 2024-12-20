@@ -27,7 +27,7 @@ SOFTWARE.
 #ifndef AOBJECT_PROTO_H
 #define AOBJECT_PROTO_H
 
-#include "aobject.h"
+#include "../aobject.h"
 
 namespace alt {
 

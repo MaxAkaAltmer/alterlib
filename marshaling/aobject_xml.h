@@ -27,7 +27,7 @@ SOFTWARE.
 #ifndef AOBJECT_XML_H
 #define AOBJECT_XML_H
 
-#include "aobject.h"
+#include "../aobject.h"
 
 namespace alt {
 

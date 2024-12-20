@@ -10,7 +10,7 @@
 #include <google/protobuf/compiler/importer.h>
 #include <google/protobuf/util/json_util.h>
 
-#include "afile.h"
+#include "../afile.h"
 #include <iostream>
 #include <fstream>
 

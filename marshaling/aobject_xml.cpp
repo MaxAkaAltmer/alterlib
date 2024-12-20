@@ -1,6 +1,6 @@
 #include "aobject_xml.h"
-#include "afile.h"
-#include "external/tinyxml/tinyxml.h"
+#include "../afile.h"
+#include "../external/tinyxml/tinyxml.h"
 
 using namespace alt;
 

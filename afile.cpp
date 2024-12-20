@@ -27,7 +27,7 @@ SOFTWARE.
 #include "afile.h"
 
 #if defined(_MSC_VER)
-    #include "external/dirent.h"
+    #include "external/dirent/include/dirent.h"
 #else
     #include <unistd.h>
     #include <dirent.h>

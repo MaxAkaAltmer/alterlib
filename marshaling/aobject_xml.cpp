@@ -1,10 +1,10 @@
 #include "aobject_xml.h"
 #include "../afile.h"
-#include "../external/tinyxml/tinyxml.h"
+#include "../external/tinyxml2/tinyxml2.h"
 
 using namespace alt;
 
-static bool _ameta_rxml_parcer_recu(object *obj, TiXmlElement *el)
+static bool _ameta_rxml_parcer_recu(object *obj, tinyxml2::XMLElement *el)
 {
     if(!el)return true;
     string node_name=el->Value();
@@ -13,44 +13,30 @@ static bool _ameta_rxml_parcer_recu(object *obj, TiXmlElement *el)
 
     obj->setName(node_name);
 
-    TiXmlAttribute *attr = el->FirstAttribute();
+    const tinyxml2::XMLAttribute *attr = el->FirstAttribute();
 
     //позаботимся о корректном порядке аттрибутов
-    hash<uint64,string> attribs_names;
-    hash<uint64,string> attribs_values;
     while(attr)
     {
-
-        string attr_name=attr->Name();
-        if(attr_name.isEmpty())break;
-
-        attribs_names.insert((((uint64)attr->Row())<<32)|attr->Column(),attr_name);
-        string attr_val=attr->Value();
-        attribs_values.insert((((uint64)attr->Row())<<32)|attr->Column(),attr_val);
-
+        obj->setAttr(attr->Name(),attr->Value());
         attr=attr->Next();
-    }
-    array<uint64> keys=attribs_names.keys();
-    for(int i=0;i<keys.size();i++)
-    {
-        obj->setAttr(attribs_names[keys[i]],attribs_values[keys[i]]);
     }
 
     //грузим потомков
-    TiXmlNode *child=el->FirstChild();
+    tinyxml2::XMLNode *child=el->FirstChild();
     while(child)
     {
         if(child->ToText())
         {
-            TiXmlText *txt = child->ToText();
+            tinyxml2::XMLText *txt = child->ToText();
             string text = txt->Value();
             obj->addContent(text);
         }
         else if(child->ToElement())
         {
-            TiXmlElement *el = child->ToElement();
-            string child_name=el->Value();
-            if(!_ameta_rxml_parcer_recu(obj->addItem(child_name),el))
+            tinyxml2::XMLElement *el_next_level = child->ToElement();
+            string child_name=el_next_level->Value();
+            if(!_ameta_rxml_parcer_recu(obj->addItem(child_name),el_next_level))
             {
                 return false;
             }
@@ -63,10 +49,10 @@ static bool _ameta_rxml_parcer_recu(object *obj, TiXmlElement *el)
 
 static bool _ameta_rxml_parcer(object *obj, string &data)
 {
-    TiXmlDocument doc;
+    tinyxml2::XMLDocument doc;
 
     doc.Parse(data());
-    if(doc.ErrorId())
+    if(doc.Error())
     {
         return false;
     }
@@ -74,7 +60,7 @@ static bool _ameta_rxml_parcer(object *obj, string &data)
     return _ameta_rxml_parcer_recu(obj,doc.FirstChildElement());
 }
 
-static bool _ameta_rxml_streamer_recu(object *obj, TiXmlElement *el)
+static bool _ameta_rxml_streamer_recu(tinyxml2::XMLDocument *doc, object *obj, tinyxml2::XMLElement *el)
 {
     array<string> list=obj->listAttributes();
     for(int i=0;i<list.size();i++)
@@ -87,13 +73,13 @@ static bool _ameta_rxml_streamer_recu(object *obj, TiXmlElement *el)
     {
         if(items[i]->name().isEmpty())
         {
-            TiXmlText *text=new TiXmlText(items[i]->content().toString()());
+            tinyxml2::XMLText *text= doc->NewText(items[i]->content().toString()());
             el->LinkEndChild(text);
         }
         else
         {
-            TiXmlElement *element = new TiXmlElement( items[i]->name()() );
-            _ameta_rxml_streamer_recu(items[i],element);
+            tinyxml2::XMLElement *element = doc->NewElement( items[i]->name()() );
+            _ameta_rxml_streamer_recu(doc,items[i],element);
             el->LinkEndChild(element);
         }
     }
@@ -101,26 +87,28 @@ static bool _ameta_rxml_streamer_recu(object *obj, TiXmlElement *el)
     return true;
 }
 
-static bool _ameta_rxml_streamer(object *obj, string &fname, bool standalone)
+static bool _ameta_rxml_streamer(object *obj, string &fname)
 {
-    TiXmlDocument doc;
+    tinyxml2::XMLDocument doc;
 
-    TiXmlDeclaration * decl = new TiXmlDeclaration( "1.0", "utf-8", standalone?"yes":"" );
-    TiXmlElement * element = new TiXmlElement( obj->name()() );
+    tinyxml2::XMLDeclaration * decl = doc.NewDeclaration();
+    tinyxml2::XMLElement * element = doc.NewElement( obj->name()() );
 
-    if(!_ameta_rxml_streamer_recu(obj,element))return false;
+    if(!_ameta_rxml_streamer_recu(&doc,obj,element))
+        return false;
 
     doc.LinkEndChild( decl );
     doc.LinkEndChild( element );
 
-    TiXmlPrinter printer;
+    tinyxml2::XMLPrinter printer;
 
     doc.Accept(&printer);
 
     // Create a std::string and copy your document data in to the string
     string str = printer.CStr();
 
-    if(!str.size())return false;
+    if(!str.size())
+        return false;
 
     file hand(fname);
 
@@ -161,12 +149,12 @@ bool object_xml::load(string fname)
     return _ameta_rxml_parcer(root_ptr,data);
 }
 
-bool object_xml::save(string fname, object *root, bool standalone)
+bool object_xml::save(string fname, object *root)
 {
-    return _ameta_rxml_streamer(root,fname,standalone);
+    return _ameta_rxml_streamer(root,fname);
 }
 
-bool object_xml::save(string fname, bool standalone)
+bool object_xml::save(string fname)
 {
-    return _ameta_rxml_streamer(root_ptr,fname,standalone);
+    return _ameta_rxml_streamer(root_ptr,fname);
 }

@@ -79,7 +79,7 @@ namespace alt {
          *                      Defaults to `false`.
          * @return `true` if the object tree was saved successfully, `false` otherwise.
          */
-        bool save(string fname, bool standalone=false);
+        bool save(string fname);
 
         /**
          * @brief Saves an object tree to an XML file.
@@ -93,7 +93,7 @@ namespace alt {
          *                      Defaults to `false`.
          * @return `true` if the object tree was saved successfully, `false` otherwise.
          */
-        static bool save(string fname, object *root, bool standalone=false);
+        static bool save(string fname, object *root);
 
         /**
          * @brief Returns a pointer to the root object of the object tree.

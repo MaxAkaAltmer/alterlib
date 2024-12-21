@@ -11,3 +11,9 @@
 [submodule "external/dirent"]
 	path = external/dirent
 	url = https://github.com/MaxAkaAltmer/dirent.git
+[submodule "external/manymouse"]
+	path = external/manymouse
+	url = https://github.com/MaxAkaAltmer/manymouse.git
+[submodule "external/gamepad"]
+	path = external/gamepad
+	url = https://github.com/MaxAkaAltmer/gamepad.git

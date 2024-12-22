@@ -27,7 +27,7 @@ SOFTWARE.
 #ifndef ACRYPTO_H
 #define ACRYPTO_H
 
-#include "abyte_array.h"
+#include "../abyte_array.h"
 
 namespace alt {
 

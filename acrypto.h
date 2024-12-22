@@ -31,6 +31,22 @@ SOFTWARE.
 
 namespace alt {
 
+//todo: решить проблему с Algorithm::Algorithm
+//Currently required:
+//../alterlib/external/cryptopp/allocate.cpp \
+//../alterlib/external/cryptopp/misc.cpp \
+//../alterlib/external/cryptopp/iterhash.cpp \
+//../alterlib/external/cryptopp/integer.cpp \
+//../alterlib/external/cryptopp/queue.cpp \
+//../alterlib/external/cryptopp/mqueue.cpp \
+//../alterlib/external/cryptopp/filters.cpp \
+//../alterlib/external/cryptopp/algparam.cpp \
+//../alterlib/external/cryptopp/asn.cpp \
+//../alterlib/external/cryptopp/nbtheory.cpp \
+//../alterlib/external/cryptopp/sha.cpp \
+//../alterlib/external/cryptopp/pubkey.cpp \
+//../alterlib/external/cryptopp/primetab.cpp \
+
     class cryptoHash
     {
     public:

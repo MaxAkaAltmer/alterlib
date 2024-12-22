@@ -23,3 +23,12 @@
 [submodule "external/cryptopp"]
 	path = external/cryptopp
 	url = https://github.com/MaxAkaAltmer/cryptopp.git
+[submodule "external/libnpy"]
+	path = external/libnpy
+	url = https://github.com/MaxAkaAltmer/libnpy.git
+[submodule "external/asio"]
+	path = external/asio
+	url = https://github.com/MaxAkaAltmer/asio.git
+[submodule "external/clipp"]
+	path = external/clipp
+	url = https://github.com/MaxAkaAltmer/clipp.git

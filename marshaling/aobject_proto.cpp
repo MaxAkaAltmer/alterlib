@@ -73,7 +73,7 @@ static bool parse_node(const google::protobuf::Message* msg, object *obj)
                     auto s = reflection->GetRepeatedString(*msg, it, i);
                     if(it->type() == google::protobuf::FieldDescriptor::TYPE_STRING)
                     {
-                        o->setAttr("type",it->cpp_type_name());
+                        o->setAttr("type",it->cpp_type_name().data());
                         o->setContent(s.c_str());
                     }
                     else
@@ -90,7 +90,7 @@ static bool parse_node(const google::protobuf::Message* msg, object *obj)
                 auto s = reflection->GetString(*msg, it);
                 if(it->type() == google::protobuf::FieldDescriptor::TYPE_STRING)
                 {
-                    o->setAttr("type",it->cpp_type_name());
+                    o->setAttr("type",it->cpp_type_name().data());
                     o->setContent(s.c_str());
                 }
                 else
@@ -111,13 +111,13 @@ static bool parse_node(const google::protobuf::Message* msg, object *obj)
                     list += reflection->GetRepeatedEnum(*msg, it, i)->name().c_str();
                 }
                 auto o = obj->addItem(it->name().c_str());
-                o->setAttr("type",it->cpp_type_name());
+                o->setAttr("type",it->cpp_type_name().data());
                 o->setContent(list);
             }
             else
             {
                 auto o = obj->addItem(it->name().c_str());
-                o->setAttr("type",it->cpp_type_name());
+                o->setAttr("type",it->cpp_type_name().data());
                 o->setContent(reflection->GetEnum(*msg, it)->name().c_str());
             }
             break;
@@ -133,13 +133,13 @@ static bool parse_node(const google::protobuf::Message* msg, object *obj)
                     list += "0x"+string::fromIntFormat(*(uint32*)&tmp,16,16);
                 }
                 auto o = obj->addItem(it->name().c_str());
-                o->setAttr("type",it->cpp_type_name());
+                o->setAttr("type",it->cpp_type_name().data());
                 o->setContent(list);
             }
             else
             {
                 auto o = obj->addItem(it->name().c_str());
-                o->setAttr("type",it->cpp_type_name());
+                o->setAttr("type",it->cpp_type_name().data());
                 real64 tmp = reflection->GetDouble(*msg, it);
                 o->setContent("0x"+string::fromIntFormat(*(uint32*)&tmp,16,16));
             }
@@ -155,13 +155,13 @@ static bool parse_node(const google::protobuf::Message* msg, object *obj)
                     list += "0x"+string::fromIntFormat(*(uint32*)&tmp,8,16);
                 }
                 auto o = obj->addItem(it->name().c_str());
-                o->setAttr("type",it->cpp_type_name());
+                o->setAttr("type",it->cpp_type_name().data());
                 o->setContent(list);
             }
             else
             {
                 auto o = obj->addItem(it->name().c_str());
-                o->setAttr("type",it->cpp_type_name());
+                o->setAttr("type",it->cpp_type_name().data());
                 real32 tmp = reflection->GetFloat(*msg, it);
                 o->setContent("0x"+string::fromIntFormat(*(uint32*)&tmp,8,16));
             }
@@ -176,13 +176,13 @@ static bool parse_node(const google::protobuf::Message* msg, object *obj)
                     list += string::fromInt(reflection->GetRepeatedInt32(*msg, it, i));
                 }
                 auto o = obj->addItem(it->name().c_str());
-                o->setAttr("type",it->cpp_type_name());
+                o->setAttr("type",it->cpp_type_name().data());
                 o->setContent(list);
             }
             else
             {
                 auto o = obj->addItem(it->name().c_str());
-                o->setAttr("type",it->cpp_type_name());
+                o->setAttr("type",it->cpp_type_name().data());
                 o->setContent(reflection->GetInt32(*msg, it));
             }
             break;
@@ -196,13 +196,13 @@ static bool parse_node(const google::protobuf::Message* msg, object *obj)
                     list += string::fromInt(reflection->GetRepeatedInt64(*msg, it, i));
                 }
                 auto o = obj->addItem(it->name().c_str());
-                o->setAttr("type",it->cpp_type_name());
+                o->setAttr("type",it->cpp_type_name().data());
                 o->setContent(list);
             }
             else
             {
                 auto o = obj->addItem(it->name().c_str());
-                o->setAttr("type",it->cpp_type_name());
+                o->setAttr("type",it->cpp_type_name().data());
                 o->setContent(reflection->GetInt64(*msg, it));
             }
             break;
@@ -216,13 +216,13 @@ static bool parse_node(const google::protobuf::Message* msg, object *obj)
                     list += string::fromInt(reflection->GetRepeatedUInt32(*msg, it, i));
                 }
                 auto o = obj->addItem(it->name().c_str());
-                o->setAttr("type",it->cpp_type_name());
+                o->setAttr("type",it->cpp_type_name().data());
                 o->setContent(list);
             }
             else
             {
                 auto o = obj->addItem(it->name().c_str());
-                o->setAttr("type",it->cpp_type_name());
+                o->setAttr("type",it->cpp_type_name().data());
                 o->setContent(reflection->GetUInt32(*msg, it));
             }
             break;
@@ -236,13 +236,13 @@ static bool parse_node(const google::protobuf::Message* msg, object *obj)
                     list += string::fromInt(reflection->GetRepeatedUInt64(*msg, it, i));
                 }
                 auto o = obj->addItem(it->name().c_str());
-                o->setAttr("type",it->cpp_type_name());
+                o->setAttr("type",it->cpp_type_name().data());
                 o->setContent(list);
             }
             else
             {
                 auto o = obj->addItem(it->name().c_str());
-                o->setAttr("type",it->cpp_type_name());
+                o->setAttr("type",it->cpp_type_name().data());
                 o->setContent(reflection->GetUInt64(*msg, it));
             }
             break;
@@ -256,13 +256,13 @@ static bool parse_node(const google::protobuf::Message* msg, object *obj)
                     list += reflection->GetRepeatedBool(*msg, it, i) ? "1":"0";
                 }
                 auto o = obj->addItem(it->name().c_str());
-                o->setAttr("type",it->cpp_type_name());
+                o->setAttr("type",it->cpp_type_name().data());
                 o->setContent(list);
             }
             else
             {
                 auto o = obj->addItem(it->name().c_str());
-                o->setAttr("type",it->cpp_type_name());
+                o->setAttr("type",it->cpp_type_name().data());
                 o->setContent(reflection->GetBool(*msg, it));
             }
             break;
@@ -287,7 +287,7 @@ static bool descriptor_to_xml(object *obj, const google::protobuf::Descriptor& d
             continue;
 
         object *child = root->addItem(field->name().c_str());
-        child->setAttr("type",field->type_name());
+        child->setAttr("type",field->type_name().data());
         child->setAttr("id",field->number());
 
         if (field->label() == google::protobuf::FieldDescriptor::LABEL_REPEATED)
@@ -332,7 +332,7 @@ static bool descriptor_to_xml(object *obj, const google::protobuf::Descriptor& d
         {
             const google::protobuf::FieldDescriptor* field = oneof->field(j);
             object *field_node = oneof_node->addItem(field->name().c_str());
-            field_node->setAttr("type", field->type_name());
+            field_node->setAttr("type", field->type_name().data());
             field_node->setAttr("id", field->number());
         }
     }

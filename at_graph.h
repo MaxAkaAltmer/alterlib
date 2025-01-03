@@ -31,7 +31,7 @@ SOFTWARE.
 
 namespace alt {
 
-    template<class NodeID, class NodeData, class LinkMeta>
+    template<class K, class NodeData, class LinkData>
     class graph
     {
     public:
@@ -39,113 +39,155 @@ namespace alt {
         graph(const graph &val)
         {
             nodes=val.nodes;
-            connects=val.connects;
+            links=val.links;
         }
-        ~graph(){}
+        virtual ~graph(){}
 
         graph& operator=(const graph &val)
         {
             nodes=val.nodes;
-            connects=val.connects;
+            links=val.links;
             return *this;
         }
 
         void clear()
         {
-            connects.clear();
+            links.clear();
             nodes.clear();
         }
 
-        array<NodeID> idArray()
+        const array<K>& keys() const
         {
             return nodes.keys();
         }
-
-        ////////////////////////////////////////////////////////////
-        //работа с узлами
-        void insert(const NodeID &id, const NodeData &data)
-        {
-            nodes.insert(id,data);
-        }
-        int nodeCount() const
-        {
-            return nodes.size();
-        }
-        int nodeIndex(const NodeID &id) const
-        {
-            return nodes.indexOf(id);
-        }
-        NodeData nodeData(int ind) const
-        {
-            return nodes.value(ind);
-        }
-        NodeData& operator[](const NodeID &id)
-        {
-            return nodes[id];
-        }
-        bool contains(const NodeID &id)
-        {
-            return nodes.contains(id);
-        }
-        NodeID nodeID(int ind) const
+        K key(int ind) const
         {
             return nodes.key(ind);
         }
-        alt::set<NodeID> nodeNodes(const NodeID &val) const
+
+        int size() const
         {
-            return connects.keysWith(val);
+            return nodes.size();
         }
-        graph& remove(NodeID id)
+
+        bool contains(const K &id) const
+        {
+            return nodes.contains(id);
+        }
+
+        void insert(const K &id, const NodeData &data)
+        {
+            nodes.insert(id,data);
+        }
+
+        int indeOf(const K &id) const
+        {
+            return nodes.indexOf(id);
+        }
+        const NodeData& node(int ind) const
+        {
+            return nodes.value(ind);
+        }
+
+        set<K> connectedWith(const K &val) const
+        {
+            set<K> rv = links.keysWith(val);
+            rv.remove(val);
+            return rv;
+        }
+        graph& removeNode(K id)
         {
             nodes.removeMulty(id);
-            connects.removeMulty(id);
+            links.removeWith(id);
             return *this;
+        }
+        NodeData& operator[](const K &id)
+        {
+            return nodes[id];
+        }
+        const NodeData& operator[](const K &id) const
+        {
+            return nodes[id];
         }
 
         ////////////////////////////////////////////////////////////
         //работа со связями
-        int link(const NodeID &n1, const NodeID &n2, const LinkMeta &data)
+        int addLinkUnique(const K &n1, const K &n2, const LinkData &data)
         {
-            return connects.insert(n1,n2,data);
+            return links.insert(n1,n2,data);
         }
-        bool isLinked(const NodeID &n1, const NodeID &n2)
+        int addLink(const K &n1, const K &n2, const LinkData &data)
         {
-            return connects.contains(n1,n2);
+            return links.insertMulty(n1,n2,data);
         }
-        int linkCount() const
+        bool isLinked(const K &n1, const K &n2) const
         {
-            return connects.size();
+            return links.contains(n1,n2);
         }
-        array<NodeID> linkNodes(int ind) const
+        bool isConnected(const K &n1, const K &n2) const
         {
-            return connects.key(ind);
-        }
-        LinkMeta linkMeta(int ind) const
-        {
-            return connects.value(ind);
-        }
-        array<LinkMeta> nodeLinks(const NodeID &id) const
-        {
-            return connects.valuesWith(id);
-        }
-        array<int> nodeLinkIndexes(const NodeID &id) const
-        {
-            return connects.indexesWith(id);
-        }
-        LinkMeta& operator()(int ind)
-        {
-            return connects[ind];
+            return links.contains_unordered(n1,n2);
         }
 
-        LinkMeta& operator()(const NodeID &n1, const NodeID &n2)
+        int linksTotal() const
         {
-            return connects.value(n1,n2);
+            return links.size();
+        }
+        const array<K>& linkKeys(int ind) const
+        {
+            return links.key(ind);
+        }
+        const LinkData& link(int ind) const
+        {
+            return links.value(ind);
         }
 
-    private:
+        array<LinkData> linksDataOf(const K &id) const
+        {
+            return links.valuesWith(id);
+        }
+        array<int> linksOf(const K &id) const
+        {
+            return links.indexesWith(id);
+        }
 
-        alt::hash<NodeID,NodeData> nodes;
-        alt::chaos<NodeID,LinkMeta> connects;
+        array<int> inputLinksOf(const K &id) const
+        {
+            return links.indexesWith(id,1);
+        }
+
+        array<int> outputLinksOf(const K &id) const
+        {
+            return links.indexesWith(id,0);
+        }
+
+        graph& removeLink(int ind)
+        {
+            links.removeByIndex(ind);
+            return *this;
+        }
+
+        const LinkData& operator()(int ind) const
+        {
+            return links.value(ind);
+        }
+        const LinkData& operator()(const K &n1, const K &n2) const
+        {
+            return links[{n1,n2}];
+        }
+        LinkData& operator()(int ind)
+        {
+            return links.value_ref(ind);
+        }
+        LinkData& operator()(const K &n1, const K &n2)
+        {
+            return links[{n1,n2}];
+        }
+
+    protected:
+
+        alt::hash<K,NodeData> nodes;
+        alt::multikey<K,LinkData> links; //todo: создать оптимальный контейнер
 
     };
 

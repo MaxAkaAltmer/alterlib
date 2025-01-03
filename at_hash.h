@@ -211,6 +211,16 @@ namespace alt {
             data->refcount++;
         }
 
+        explicit set(const array<T> &val)
+        {
+            data=newInternal(ATHASH_MIN_TABCOUNT);
+            for(int i=0;i<val.size();i++)
+            {
+                int ind=indexOf(val[i]);
+                if(ind<0)makeEntry(val[i]);
+            }
+        }
+
         bool operator==(const set<T> &val) const
         {
             if(size()!=val.size())return false;
@@ -1327,15 +1337,6 @@ namespace alt {
             return ind;
         }
 
-        int insertAll(const K &key, const V &val)
-        {
-            int ind;
-            cloneInternal();
-            ind=makeEntry(key);
-            data->Values[ind]=val;
-            return ind;
-        }
-
         hash& remove(const K &key)
         {
             cloneInternal();
@@ -1349,15 +1350,15 @@ namespace alt {
         hash& removeByIndex(int ind)
         {
             cloneInternal();
-            if(ind<size())
+            if(ind<size() && ind>=0)
             {
                 removeEntry(ind);
+                refactory();
             }
-            refactory();
             return *this;
         }
 
-        hash& remove(const K &key, const V &val)
+        hash& remove(const K &key, const V &val, bool all = true)
         {
             cloneInternal();
             uint32 code=aHash(key);
@@ -1368,6 +1369,7 @@ namespace alt {
                 if(data->Keys[ind]==key && data->Values[ind]==val)
                 {
                     removeEntry(ind);
+                    if(!all) break;
                 }
             }
             refactory();
@@ -1467,7 +1469,7 @@ namespace alt {
             return rv;
         }
 
-        const array<int>& index_list(const K &key) const
+        const array<int>& index_list_mesh(const K &key) const
         {
             uint32 code=aHash(key);
             int tab=code&((1<<data->tabp2p)-1);
@@ -1486,15 +1488,29 @@ namespace alt {
             if(ind<0)ind=makeEntry(key);
             return data->Values[ind];
         }
+
+        array<int> indexes(const K &key) const
+        {
+            array<int> rv;
+            uint32 code=aHash(key);
+            int tab=code&((1<<data->tabp2p)-1);
+            for(int i=0;i<data->Hash[tab].size();i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(data->Keys[ind] == key)
+                    rv.append(ind);
+            }
+            return rv;
+        }
     };
 
 
     //////////////////////////////////////////////////////////////////////////////////
-    // Хаос-таблица
+    // Хэш-таблица с проддержкой множества ключей к значению
     //////////////////////////////////////////////////////////////////////////////////
 
     template <class K, class V>
-    class chaos
+    class multikey
     {
     private:
 
@@ -1509,7 +1525,6 @@ namespace alt {
         };
 
         Internal *data;
-        array<K> keyTemp;
 
         Internal* newInternal(int p2p)
         {
@@ -1537,35 +1552,10 @@ namespace alt {
             Internal *tmp=newInternal(data->tabp2p);
             tmp->Values=data->Values;
             tmp->Keys=data->Keys;
-            for(int i=0;i<(1<<data->tabp2p);i++)tmp->Hash[i]=data->Hash[i];
+            for(int i=0;i<(1<<data->tabp2p);i++)
+                tmp->Hash[i]=data->Hash[i];
             deleteInternal();
             data=tmp;
-        }
-
-        int indexOf() const
-        {
-            uint32 code=aHash(keyTemp[0]);
-            int tab=code&((1<<data->tabp2p)-1);
-            for(int i=0;i<data->Hash[tab].size();i++)
-            {
-                int ind=data->Hash[tab][i];
-                if(data->Keys[ind]==keyTemp)
-                    return ind;
-            }
-            return -1;
-        }
-
-        int indexOf(const K &k1, const K &k2) const
-        {
-            uint32 code=aHash(k1);
-            int tab=code&((1<<data->tabp2p)-1);
-            for(int i=0;i<data->Hash[tab].size();i++)
-            {
-                int ind=data->Hash[tab][i];
-                if(data->Keys[ind].size()!=2)continue;
-                if(data->Keys[ind][0]==k1 && data->Keys[ind][1]==k2)return ind;
-            }
-            return -1;
         }
 
         void refactory()
@@ -1588,9 +1578,9 @@ namespace alt {
 
                     for(int i=0;i<data->Keys.size();i++)
                     {
-                        for(int j=0;j<data->Keys[i].size();j++)
+                        for(int j=0;j<data->Keys[i].size() || !j;j++)
                         {
-                            unsigned int code=aHash(data->Keys[i][j]);
+                            unsigned int code=data->Keys[i].size()?aHash(data->Keys[i][j]):0;
                             int tab=code&((1<<data->tabp2p)-1);
                             data->Hash[tab].append(i);
                         }
@@ -1599,16 +1589,16 @@ namespace alt {
             }
         }
 
-        int makeEntry()
+        int makeEntry(const array<K> &keyTemp)
         {
             refactory();
 
             int ind=data->Keys.size();
 
             set<int> tabs;
-            for(int i=0;i<keyTemp.size();i++)
+            for(int i=0; i<keyTemp.size() || !i; i++)
             {
-                uint32 code=aHash(keyTemp[i]);
+                uint32 code=keyTemp.size()?aHash(keyTemp[i]):0;
                 int tab=code&((1<<data->tabp2p)-1);
                 if(tabs.contains(tab))continue;
                 tabs.insert(tab);
@@ -1622,9 +1612,9 @@ namespace alt {
 
         void removeEntry(int ind)
         {
-            for(int j=0;j<data->Keys[ind].size();j++)
+            for(int j=0; j<data->Keys[ind].size() || !j; j++)
             {
-                uint32 code=aHash(data->Keys[ind][j]);
+                uint32 code=data->Keys[ind].size()?aHash(data->Keys[ind][j]):0;
                 int tab=code&((1<<data->tabp2p)-1);
 
                 for(int i=0;i<data->Hash[tab].size();i++)
@@ -1641,9 +1631,9 @@ namespace alt {
             //корректируем индекс переносимого элемента
             if(data->Keys.size() && ind!=data->Keys.size()-1)
             {
-                for(int j=0;j<data->Keys.last().size();j++)
+                for(int j=0; j<data->Keys.last().size() || !j; j++)
                 {
-                    uint32 code=aHash(data->Keys.last()[j]);
+                    uint32 code=data->Keys.last().size()?aHash(data->Keys.last()[j]):0;
                     int tab=code&((1<<data->tabp2p)-1);
                     for(int i=0;i<data->Hash[tab].size();i++)
                     {
@@ -1665,58 +1655,296 @@ namespace alt {
 
     public:
 
-        chaos()
+        multikey()
         {
             data=newInternal(ATHASH_MIN_TABCOUNT);
         }
-        chaos(const chaos<K,V> &val)
+        multikey(const multikey<K,V> &val)
         {
             data=val.data;
             data->refcount++;
         }
-        chaos& operator=(const chaos<K,V> &val)
+        multikey& operator=(const multikey<K,V> &val)
         {
-            if(val.data==data)return *this;
+            if(val.data==data)
+                return *this;
             deleteInternal();
             data=val.data;
             data->refcount++;
             return *this;
         }
-        ~chaos()
+        ~multikey()
         {
             deleteInternal();
         }
 
-        chaos& clear()
+        multikey& clear()
         {
             deleteInternal();
             data=newInternal(ATHASH_MIN_TABCOUNT);
             return *this;
+        }
+
+        bool operator==(const multikey &val) const
+        {
+            if(data==val.data)return true;
+            if(size()!=val.size())return false;
+            for(int i=0;i<size();i++)
+            {
+                if(!val.contains(key(i),value(i)))return false;
+            }
+            return true;
+        }
+
+        bool operator!=(const multikey &val) const
+        {
+            return !((*this)==val);
+        }
+
+        int indexOf(const array<K>& keyTemp) const
+        {
+            uint32 code=keyTemp.size()?aHash(keyTemp[0]):0;
+            int tab=code&((1<<data->tabp2p)-1);
+            for(int i=0;i<data->Hash[tab].size();i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(data->Keys[ind]==keyTemp)
+                    return ind;
+            }
+            return -1;
+        }
+
+        int indexOf(const K &k1, const K &k2) const
+        {
+            uint32 code=aHash(k1);
+            int tab=code&((1<<data->tabp2p)-1);
+            for(int i=0;i<data->Hash[tab].size();i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(data->Keys[ind].size()!=2)
+                    continue;
+                if(data->Keys[ind][0]==k1 && data->Keys[ind][1]==k2)
+                    return ind;
+            }
+            return -1;
+        }
+
+        int indexOf(const K &key) const
+        {
+            uint32 code=aHash(key);
+            int tab=code&((1<<data->tabp2p)-1);
+            for(int i=0;i<data->Hash[tab].size();i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(data->Keys[ind].size()!=1)
+                    continue;
+                if(data->Keys[ind][0]==key)
+                    return ind;
+            }
+            return -1;
         }
 
         //работа с содержимым таблицы
         int insert(const K &key, const V &val)
         {
-            cloneInternal();
-            keyTemp.clear();
-            keyTemp.append(key);
-
-            int ind=indexOf();
-            if(ind<0)ind=makeEntry();
-            data->Values[ind]=val;
-            return ind;
+            array<K> keyTemp(1);
+            keyTemp[0] = key;
+            return insert(keyTemp,val);
         }
         int insert(const K &k1, const K &k2, const V &val)
         {
+            array<K> keyTemp(2);
+            keyTemp[0] = k1;
+            keyTemp[1] = k2;
+            return insert(keyTemp,val);
+        }
+        int insert(const array<K>& key, const V &val)
+        {
             cloneInternal();
-            keyTemp.clear();
-            keyTemp.append(k1);
-            keyTemp.append(k2);
-
-            int ind=indexOf();
-            if(ind<0)ind=makeEntry();
+            int ind=indexOf(key);
+            if(ind<0)ind=makeEntry(key);
             data->Values[ind]=val;
             return ind;
+        }
+
+        int insertMulty(const K& key, const V &val, bool evenFullClone=true)
+        {
+            array<K> keyTemp(1);
+            keyTemp[0] = key;
+            return insertMulty(keyTemp,val,evenFullClone);
+        }
+
+        int insertMulty(const K& k1, const K& k2, const V &val, bool evenFullClone=true)
+        {
+            array<K> keyTemp(2);
+            keyTemp[0] = k1;
+            keyTemp[1] = k2;
+            return insertMulty(keyTemp,val,evenFullClone);
+        }
+
+        int insertMulty(const array<K>& key, const V &val, bool evenFullClone=true)
+        {
+            cloneInternal();
+            if(!evenFullClone)
+            {
+                uint32 code=key.size()?aHash(key[0]):0;
+                int tab=code&((1<<data->tabp2p)-1);
+                for(int i=0;i<data->Hash[tab].size();i++)
+                {
+                    int ind=data->Hash[tab][i];
+                    if(data->Keys[ind] == key && data->Values[ind] == val)
+                        return ind;
+                }
+            }
+            int ind=indexOf(key);
+            if(ind<0)ind=makeEntry(key);
+            data->Values[ind]=val;
+            return ind;
+        }
+
+        multikey& removeByIndex(int ind)
+        {
+            cloneInternal();
+            removeEntry(ind);
+            refactory();
+            return *this;
+        }
+
+        multikey& remove(const K& key)
+        {
+            cloneInternal();
+            int ind=indexOf(key);
+            if(ind<0) return *this;
+            removeEntry(ind);
+            refactory();
+            return *this;
+        }
+
+        multikey& remove(const K& k1, const K& k2)
+        {
+            cloneInternal();
+            int ind=indexOf(k1,k2);
+            if(ind<0) return *this;
+            removeEntry(ind);
+            refactory();
+            return *this;
+        }
+
+        multikey& remove(const array<K>& key)
+        {
+            cloneInternal();
+            int ind=indexOf(key);
+            if(ind<0) return *this;
+            removeEntry(ind);
+            refactory();
+            return *this;
+        }
+
+        multikey& remove(const array<K>& key, const V &val, bool all = true)
+        {
+            cloneInternal();
+            uint32 code=key.size()?aHash(key[0]):0;
+            int tab=code&((1<<data->tabp2p)-1);
+            int size=data->Hash[tab].size();
+            for(int i=0;i<size;i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(data->Keys[ind] == key && data->Values[ind] == val)
+                {
+                    removeEntry(ind);
+                    if(!all) break;
+                    i--;
+                    size=data->Hash[tab].size();
+                }
+            }
+            refactory();
+            return *this;
+        }
+
+        multikey& removeMulty(const K& key)
+        {
+            cloneInternal();
+            uint32 code=aHash(key);
+            int tab=code&((1<<data->tabp2p)-1);
+            int size=data->Hash[tab].size();
+            for(int i=0;i<size;i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(data->Keys[ind].size() == 1 && data->Keys[ind][0] == key)
+                {
+                    removeEntry(ind);
+                    i--;
+                    size=data->Hash[tab].size();
+                }
+            }
+            refactory();
+            return *this;
+        }
+
+        multikey& removeMulty(const K& k1, const K& k2)
+        {
+            cloneInternal();
+            uint32 code=aHash(k1);
+            int tab=code&((1<<data->tabp2p)-1);
+            int size=data->Hash[tab].size();
+            for(int i=0;i<size;i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(data->Keys[ind].size() == 2 && data->Keys[ind][0] == k1 && data->Keys[ind][1] == k2)
+                {
+                    removeEntry(ind);
+                    i--;
+                    size=data->Hash[tab].size();
+                }
+            }
+            refactory();
+            return *this;
+        }
+
+        multikey& removeMulty(const array<K>& key)
+        {
+            cloneInternal();
+            uint32 code=key.size()?aHash(key[0]):0;
+            int tab=code&((1<<data->tabp2p)-1);
+            int size=data->Hash[tab].size();
+            for(int i=0;i<size;i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(data->Keys[ind] == key)
+                {
+                    removeEntry(ind);
+                    i--;
+                    size=data->Hash[tab].size();
+                }
+            }
+            refactory();
+            return *this;
+        }
+
+        multikey& removeWith(const K &key)
+        {
+            cloneInternal();
+            uint32 code=aHash(key);
+            int tab=code&((1<<data->tabp2p)-1);
+            int size=data->Hash[tab].size();
+            for(int i=0;i<size;i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(data->Keys[ind].contains(key))
+                {
+                    removeEntry(ind);
+                    i--;
+                    size=data->Hash[tab].size();
+                }
+            }
+            refactory();
+            return *this;
+        }
+
+        bool contains(const K &k1) const
+        {
+            if(indexOf(k1)<0)return false;
+            return true;
         }
 
         bool contains(const K &k1, const K &k2) const
@@ -1725,41 +1953,225 @@ namespace alt {
             return true;
         }
 
-        array<K> key(int ind) const
+        bool contains(const array<K>& key) const
+        {
+            if(indexOf(key)<0)return false;
+            return true;
+        }
+
+        bool contains(const array<K>& key, const V &val) const
+        {
+            uint32 code=key.size()?aHash(key[0]):0;
+            int tab=code&((1<<data->tabp2p)-1);
+            int size=data->Hash[tab].size();
+            for(int i=0;i<size;i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(data->Keys[ind] == key && data->Values[ind] == val)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        bool contains_unordered(const K &k1, const K &k2) const
+        {
+            uint32 code=aHash(k1);
+            int tab=code&((1<<data->tabp2p)-1);
+            int size=data->Hash[tab].size();
+            for(int i=0;i<size;i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(data->Keys[ind].size()==2 && data->Keys[ind].contains(k1) && data->Keys[ind].contains(k2))
+                {
+                    if(k1==k2 && data->Keys[ind][0]!=data->Keys[ind][1])
+                        return false;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        bool contains_unordered(const set<K>& key) const
+        {
+            uint32 code=key.size()?aHash(key[0]):0;
+            int tab=code&((1<<data->tabp2p)-1);
+            int size=data->Hash[tab].size();
+            for(int i=0;i<size;i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(set<K>(data->Keys[ind]) == key)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        int size() const
+        {
+            return data->Keys.size();
+        }
+        const array<K>& key(int ind) const
         {
             return data->Keys[ind];
         }
-
-        V value(int ind) const
+        const V& value(int ind) const
         {
             return data->Values[ind];
         }
-
-        V& value(const K &k1, const K &k2)
-        {
-            cloneInternal();
-            keyTemp.clear();
-            keyTemp.append(k1);
-            keyTemp.append(k2);
-
-            int ind=indexOf();
-            if(ind<0)ind=makeEntry();
-            return data->Values[ind];
-        }
-
-        V& operator[](int ind)
+        V& value_ref(int ind)
         {
             cloneInternal();
             return data->Values[ind];
         }
+        const V& last() const
+        {
+            return data->Values.last();
+        }
 
-        array< array<K> > keys() const
+        const array<array<K>>& keys() const
         {
             return data->Keys;
         }
-        array<V> values() const
+        const array<V>& values() const
         {
             return data->Values;
+        }
+
+        const array<int>& index_list_mesh(const K &key) const
+        {
+            uint32 code=aHash(key);
+            int tab=code&((1<<data->tabp2p)-1);
+            return data->Hash[tab];
+        }
+
+        V& operator[](const array<K> &key)
+        {
+            cloneInternal();
+            int ind=indexOf(key);
+            if(ind<0)ind=makeEntry(key);
+            return data->Values[ind];
+        }
+
+        const V& operator[](const array<K> &key) const
+        {
+            int ind=indexOf(key);
+            return data->Values[ind];
+        }
+
+        V& operator[](std::initializer_list<K> list)
+        {
+            cloneInternal();
+            int i=0;
+            array<K> key(list.size());
+            for(auto it: list)
+            {
+                key[i] = it;
+                i++;
+            }
+            int ind=indexOf(key);
+            if(ind<0)ind=makeEntry(key);
+            return data->Values[ind];
+        }
+
+        const V& operator[](std::initializer_list<K> list) const
+        {
+            int ind = -1;
+            if(list.size() == 1 )
+            {
+                ind = indexOf(*list.begin());
+            }
+            else if(list.size() == 2)
+            {
+                ind = indexOf(*list.begin(),*(list.begin()+1));
+            }
+            else
+            {
+                int i=0;
+                array<K> key(list.size());
+                for(auto it: list)
+                {
+                    key[i] = it;
+                    i++;
+                }
+                ind=indexOf(key);
+            }
+            return data->Values[ind];
+        }
+
+        array<int> indexes(const array<K> &key) const
+        {
+            array<int> rv;
+            uint32 code=key.size()?aHash(key[0]):0;
+            int tab=code&((1<<data->tabp2p)-1);
+            for(int i=0;i<data->Hash[tab].size();i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(data->Keys[ind] == key)
+                    rv.append(ind);
+            }
+            return rv;
+        }
+
+        array<int> indexes(const K &k1, const K &k2) const
+        {
+            array<int> rv;
+            uint32 code=aHash(k1);
+            int tab=code&((1<<data->tabp2p)-1);
+            for(int i=0;i<data->Hash[tab].size();i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(data->Keys[ind].size() == 2 && data->Keys[ind][0] == k1 && data->Keys[ind][1] == k2)
+                    rv.append(ind);
+            }
+            return rv;
+        }
+
+        array<int> indexes(const K &key) const
+        {
+            array<int> rv;
+            uint32 code=aHash(key);
+            int tab=code&((1<<data->tabp2p)-1);
+            for(int i=0;i<data->Hash[tab].size();i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(data->Keys[ind].size() == 1 && data->Keys[ind][0] == key)
+                    rv.append(ind);
+            }
+            return rv;
+        }
+
+        array<int> indexes_unordered(const K &k1, const K &k2) const
+        {
+            array<int> rv;
+            uint32 code=aHash(k1);
+            int tab=code&((1<<data->tabp2p)-1);
+            for(int i=0;i<data->Hash[tab].size();i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(data->Keys[ind].size() == 2 && data->Keys[ind].contains(k1) && data->Keys[ind].contains(k2))
+                {
+                    if(!(k1 == k2 && data->Keys[ind][0] != data->Keys[ind][1]))
+                        rv.append(ind);
+                }
+            }
+            return rv;
+        }
+
+        array<int> indexes_unordered(const set<K> &key) const
+        {
+            array<int> rv;
+            uint32 code=key.size()?aHash(key[0]):0;
+            int tab=code&((1<<data->tabp2p)-1);
+            for(int i=0;i<data->Hash[tab].size();i++)
+            {
+                int ind=data->Hash[tab][i];
+                if(set<K>(data->Keys[ind]) == key)
+                    rv.append(ind);
+            }
+            return rv;
         }
 
         set<K> keysWith(const K &key) const
@@ -1779,7 +2191,7 @@ namespace alt {
             return rv;
         }
 
-        array<V> valuesWith(const K &key) const
+        array<V> valuesWith(const K &key, int at = -1) const
         {
             array<V> rv;
             uint32 code=aHash(key);
@@ -1787,13 +2199,21 @@ namespace alt {
             for(int i=0;i<data->Hash[tab].size();i++)
             {
                 int ind=data->Hash[tab][i];
-                if(data->Keys[ind].contains(key))
-                    rv.append(data->Values[ind]);
+                if(at>=0)
+                {
+                    if(data->Keys[ind].size()>at && data->Keys[ind][at] == key)
+                        rv.append(data->Values[ind]);
+                }
+                else
+                {
+                    if(data->Keys[ind].contains(key))
+                        rv.append(data->Values[ind]);
+                }
             }
             return rv;
         }
 
-        array<int> indexesWith(const K &key) const
+        array<int> indexesWith(const K &key, int at = -1) const
         {
             array<int> rv;
             uint32 code=aHash(key);
@@ -1801,33 +2221,18 @@ namespace alt {
             for(int i=0;i<data->Hash[tab].size();i++)
             {
                 int ind=data->Hash[tab][i];
-                if(data->Keys[ind].contains(key))rv.append(ind);
-            }
-            return rv;
-        }
-
-        chaos& removeMulty(const K &key)
-        {
-            uint32 code=aHash(key);
-            int tab=code&((1<<data->tabp2p)-1);
-            int size=data->Hash[tab].size();
-            for(int i=0;i<size;i++)
-            {
-                int ind=data->Hash[tab][i];
-                if(data->Keys[ind].contains(key))
+                if(at>=0)
                 {
-                    removeEntry(ind);
-                    i--;
-                    size=data->Hash[tab].size();
+                    if(data->Keys[ind].size()>at && data->Keys[ind][at] == key)
+                        rv.append(ind);
+                }
+                else
+                {
+                    if(data->Keys[ind].contains(key))
+                        rv.append(ind);
                 }
             }
-            refactory();
-            return *this;
-        }
-
-        int size() const
-        {
-            return data->Keys.size();
+            return rv;
         }
 
     };

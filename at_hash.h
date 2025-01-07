@@ -47,8 +47,8 @@ namespace alt {
 
     __inline uint32 aHash(int32 key){ return key; }
     __inline uint32 aHash(uint32 key){ return key; }
-    __inline uint32 aHash(int64 key){ return (key>>32)^key; }
-    __inline uint32 aHash(uint64 key){ return (key>>32)^key; }
+    __inline uint32 aHash(int64 key){ return uint32((key>>32)^key); }
+    __inline uint32 aHash(uint64 key){ return uint32((key>>32)^key); }
     __inline uint32 aHash(const char *key)
     {
         if(!key)return 0;
@@ -386,6 +386,582 @@ namespace alt {
             cloneInternal();
             return data->Values[ind];
         }
+    };
+
+    /////////////////////////////////////////////////////////////////////////////////////////
+
+    template <class K>
+    class order //based on AVL tree
+    {
+    private:
+
+        struct Node
+        {
+            K	  key;
+            uintz height = 1;
+            uintz count = 1;
+            Node *parent = nullptr;
+            Node *left = nullptr;
+            Node *right = nullptr;
+        };
+
+        struct Internal
+        {
+            Node *top = nullptr;
+            uintz refcount = 0;
+        };
+
+        Internal *data = nullptr;
+
+        void deleteNodes(Node *n)
+        {
+            if(!n)
+                return;
+            deleteNodes(n->right);
+            deleteNodes(n->left);
+        }
+        void deleteInternal()
+        {
+            data->refcount--;
+            if(!data->refcount)
+            {
+                deleteNodes(data->top);
+                delete data;
+            }
+            data = nullptr;
+        }
+
+        Node* copyNodes(Node *from, Node *parent)
+        {
+            Node *to = nullptr;
+
+            if(!from)
+                return to;
+            to = new Node;
+            to->key = from->key;
+            to->height = from->height;
+            to->parent = parent;
+            to->left = copyNodes(from->left,to);
+            to->right = copyNodes(from->right,to);
+
+            return to;
+        }
+
+        void cloneInternal()
+        {
+            if(data->refcount<2)return;
+            Internal *tmp = new Internal;
+            tmp->refcount++;
+
+            data->top = copyNodes(data->top,nullptr);
+
+            deleteInternal();
+            data=tmp;
+        }
+
+        Node* find(Node *n, const K &key)
+        {
+            if(!n)
+                return nullptr;
+            if(n->key == key)
+                return n;
+            if(key < n->key)
+                return find(n->left,key);
+            return find(n->right,key);
+        }
+
+        Node* findByIndex(Node *n, uintz &index) const
+        {
+            if(!n)
+                return nullptr;
+            if(index>=n->count)
+                return nullptr;
+            if(index < (n->left?n->left->count:0))
+                return findByIndex(n->left,index);
+            if(index >= n->count-(n->right?n->right->count:0))
+            {
+                index -= n->count-(n->right?n->right->count:0);
+                return findByIndex(n->right,index);
+            }
+            index -= (n->left?n->left->count:0);
+            return n;
+        }
+
+        Node* rotateRight(Node * n)
+        {
+            Node *x = n->left;
+            n->left = x->right;
+            x->right = n;
+
+            if(n->parent)
+            {
+                if(n->parent->left == n)
+                    n->parent->left = x;
+                else if(n->parent->right == n)
+                    n->parent->right = x;
+            }
+
+            x->parent = n->parent;
+            if(x->left)
+                x->left->parent = x;
+            if(x->right)
+                x->right->parent = x;
+
+            if(n->left)
+                n->left->parent = n;
+            if(n->right)
+                n->right->parent = n;
+
+            countNode(n);
+            countNode(x);
+
+            if(!x->parent)
+                data->top = x;
+
+            return x;
+        }
+
+        Node* rotateLeft(Node * n)
+        {
+            Node *x = n->right;
+            n->right = x->left;
+            x->left = n;
+
+            if(n->parent)
+            {
+                if(n->parent->left == n)
+                    n->parent->left = x;
+                else if(n->parent->right == n)
+                    n->parent->right = x;
+            }
+
+            x->parent = n->parent;
+            if(x->left)
+                x->left->parent = x;
+            if(x->right)
+                x->right->parent = x;
+
+            if(n->left)
+                n->left->parent = n;
+            if(n->right)
+                n->right->parent = n;
+
+            countNode(n);
+            countNode(x);
+
+            if(!x->parent)
+                data->top = x;
+
+            return x;
+        }
+
+        void countNode(Node *n)
+        {
+            n->height = 1+alt::imath::max(n->left?n->left->height:0,n->right?n->right->height:0);
+            n->count = 1+(n->left?n->left->count:0)+(n->right?n->right->count:0);
+        }
+
+        Node* createEntry(Node *n, const K &key)
+        {
+            Node *rv = nullptr;
+            if(key < n->key)
+            {
+                if(n->left)
+                {
+                    rv = createEntry(n->left,key);
+                    countNode(n);
+                }
+                else
+                {
+                    rv = new Node;
+                    rv->key = key;
+                    rv->parent = n;
+                    n->left = rv;
+                    countNode(n);
+                    return rv;
+                }
+            }
+            else
+            {
+                if(n->right)
+                {
+                    rv = createEntry(n->right,key);
+                    countNode(n);
+                }
+                else
+                {
+                    rv = new Node;
+                    rv->key = key;
+                    rv->parent = n;
+                    n->right = rv;
+                    countNode(n);
+                    return rv;
+                }
+            }
+
+            int balance = checkBalance(n);
+
+            if(balance>1)
+            {
+                if(checkBalance(n->left)<0)
+                    rotateLeft(n->left);
+                rotateRight(n);
+            }
+            else if(balance<-1)
+            {
+                if(checkBalance(n->right)>0)
+                    rotateRight(n->right);
+                rotateLeft(n);
+            }
+
+            return rv;
+        }
+
+        int checkBalance(Node *n)
+        {
+            return (n->left?n->left->height:0) - (n->right?n->right->height:0);
+        }
+
+        Node* makeEntry(const K &key)
+        {
+            Node* n;
+            if(!data->top)
+            {
+                n = new Node;
+                n->key = key;
+                data->top = n;
+            }
+            else
+            {
+                n = createEntry(data->top,key);
+                countNode(data->top);
+            }
+            return n;
+        }
+
+        void fixEntry(Node* n)
+        {
+            if(!n)
+                return;
+            countNode(n);
+
+            int balance = checkBalance(n);
+
+            if(balance>1)
+            {
+                if(checkBalance(n->left)<0)
+                    rotateLeft(n->left);
+                n = rotateRight(n);
+            }
+            else if(balance<-1)
+            {
+                if(checkBalance(n->right)>0)
+                    rotateRight(n->right);
+                n = rotateLeft(n);
+            }
+
+            if(n->parent)
+                fixEntry(n->parent);
+        }
+
+        void removeEntry(Node* n)
+        {
+            if(n->left==nullptr && n->right==nullptr)
+            {
+                if(n->parent)
+                {
+                    if(n->parent->left==n)
+                        n->parent->left = nullptr;
+                    else if(n->parent->right==n)
+                        n->parent->right = nullptr;
+                    fixEntry(n->parent);
+                }
+                else
+                {
+                    data->top = nullptr;
+                }
+            }
+            else if(n->left==nullptr)
+            {
+                n->right->parent = n->parent;
+                if(n->parent)
+                {
+                    if(n->parent->left==n)
+                        n->parent->left = n->right;
+                    else if(n->parent->right==n)
+                        n->parent->right = n->right;
+                    fixEntry(n->parent);
+                }
+                else
+                {
+                    data->top = n->right;
+
+                }
+            }
+            else if(n->right==nullptr)
+            {
+                n->left->parent = n->parent;
+                if(n->parent)
+                {
+                    if(n->parent->left==n)
+                        n->parent->left = n->left;
+                    else if(n->parent->right==n)
+                        n->parent->right = n->left;
+                    fixEntry(n->parent);
+                }
+                else
+                {
+                    data->top = n->left;
+                }
+            }
+            else
+            {
+                int balance = checkBalance(n);
+                if(balance > 0)
+                {
+                    Node *up;
+                    Node *replacer = n->left->right;
+                    if(replacer)
+                    {
+                        while(replacer->right) replacer = replacer->right;
+                        up = replacer->parent;
+                        up->right = replacer->left;
+                        if(up->right)
+                            up->right->parent = up;
+                        replacer->parent = n->parent;
+                        if(n->parent)
+                        {
+                            if(n->parent->left==n)
+                                n->parent->left = replacer;
+                            else if(n->parent->right==n)
+                                n->parent->right = replacer;
+                        }
+                        else
+                        {
+                            data->top = replacer;
+                        }
+                        replacer->left = n->left;
+                        replacer->right = n->right;
+                        if(n->left)
+                            n->left->parent = replacer;
+                        if(n->right)
+                            n->right->parent = replacer;
+                    }
+                    else
+                    {
+                        up = n->right;
+                        n->left->parent = n->parent;
+                        if(n->parent)
+                        {
+                            if(n->parent->left==n)
+                                n->parent->left = n->left;
+                            else if(n->parent->right==n)
+                                n->parent->right = n->left;
+                        }
+                        else
+                        {
+                            data->top = n->left;
+                        }
+                        n->left->right = n->right;
+                        n->right->parent = n->left;
+                    }
+                    fixEntry(up);
+                }
+                else
+                {
+                    Node *up;
+                    Node *replacer = n->right->left;
+
+                    if(replacer)
+                    {
+                        while(replacer->left) replacer = replacer->left;
+                        up = replacer->parent;
+                        up->left = replacer->right;
+                        if(up->left)
+                            up->left->parent = up;
+                        replacer->parent = n->parent;
+                        if(n->parent)
+                        {
+                            if(n->parent->left==n)
+                                n->parent->left = replacer;
+                            else if(n->parent->right==n)
+                                n->parent->right = replacer;
+                        }
+                        else
+                        {
+                            data->top = replacer;
+                        }
+                        replacer->left = n->left;
+                        replacer->right = n->right;
+
+                        if(n->left)
+                            n->left->parent = replacer;
+                        if(n->right)
+                            n->right->parent = replacer;
+                    }
+                    else
+                    {
+                        up = n->left;
+                        n->right->parent = n->parent;
+                        if(n->parent)
+                        {
+                            if(n->parent->left==n)
+                                n->parent->left = n->right;
+                            else if(n->parent->right==n)
+                                n->parent->right = n->right;
+                        }
+                        else
+                        {
+                            data->top = n->right;
+                        }
+                        n->right->left = n->left;
+                        n->left->parent = n->right;
+                    }
+                    fixEntry(up);
+                }
+            }
+
+            delete n;
+        }
+
+#ifdef ALT_DEBUG_ENABLE
+        void printNode(Node *n)
+        {
+            if(!n)
+                return;
+            std::cout << "{" << n->key() << ",";
+            printNode(n->left);
+            std::cout << ",";
+            printNode(n->right);
+            std::cout << "}";
+        }
+#endif
+
+    public:
+
+#ifdef ALT_DEBUG_ENABLE
+        void print()
+        {
+            printNode(data->top);
+            std::cout << std::endl;
+        }
+#endif
+
+        order()
+        {
+            data = new Internal;
+            data->refcount++;
+        }
+        order(const order<K> &val)
+        {
+            data=val.data;
+            data->refcount++;
+        }
+        order& operator=(const order<K> &val)
+        {
+            if(val.data==data)
+                return *this;
+            deleteInternal();
+            data=val.data;
+            data->refcount++;
+            return *this;
+        }
+        ~order()
+        {
+            deleteInternal();
+        }
+
+        order& clear()
+        {
+            deleteInternal();
+            data = new Internal;
+            data->refcount++;
+            return *this;
+        }
+
+        uintz size() const
+        {
+            if(data->top)
+                return data->top->count;
+            return 0;
+        }
+
+        uintz height() const
+        {
+            if(data->top)
+                return data->top->height;
+            return 0;
+        }
+
+        bool operator==(const order &val) const
+        {
+            if(data==val.data)return true;
+            if(size()!=val.size())return false;
+            for(int i=0;i<size();i++)
+            {
+                if(!val.contains((*this)[i]))return false;
+            }
+            return true;
+        }
+
+        bool operator!=(const order &val) const
+        {
+            return !((*this)==val);
+        }
+
+        bool contains(const K &key) const
+        {
+            return find(data->top,key);
+        }
+
+        intz indexOf(const K &key) const
+        {
+            Node *n = find(data->top,key);
+            if(!n)
+                return -1;
+            intz off = n->left?n->left->count:0;
+
+            while(n->parent)
+            {
+                if(n == n->parent->right)
+                    off+=(n->parent->count-n->count);
+                n = n->parent;
+            }
+
+            return off;
+        }
+
+        order& insert(const K &key)
+        {
+            cloneInternal();
+            Node *n=find(data->top,key);
+            if(!n)
+                n=makeEntry(key);
+
+            return *this;
+        }
+
+        const K& operator[](intz ind) const
+        {
+            uintz off = ind;
+            return findByIndex(data->top,off)->key;
+        }
+
+        void removeByIndex(intz ind)
+        {
+            uintz off = ind;
+            Node *n = findByIndex(data->top,off);
+            if(n)
+                removeEntry(n);
+        }
+
+        void remove(const K &key)
+        {
+            Node *n=find(data->top,key);
+            if(n)
+                removeEntry(n);
+        }
+
     };
 
     /////////////////////////////////////////////////////////////////////////////////////////
@@ -1126,7 +1702,7 @@ namespace alt {
             Internal *rv;
             rv=new Internal;
             rv->tabp2p=p2p;
-            rv->Hash=new array<int>[1<<(rv->tabp2p)];
+            rv->Hash=new array<int>[1ull<<(rv->tabp2p)];
             rv->refcount=1;
             return rv;
         }
@@ -1168,7 +1744,7 @@ namespace alt {
                     //перестраиваем таблицу
                     delete []data->Hash;
                     data->tabp2p=count;
-                    data->Hash=new array<int>[(1<<data->tabp2p)];
+                    data->Hash=new array<int>[(1ull<<data->tabp2p)];
 
                     for(int i=0;i<data->Keys.size();i++)
                     {

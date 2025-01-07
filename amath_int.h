@@ -275,7 +275,7 @@ namespace imath {
                 cnt+=2;
                 curr*=tmp;
                 dop=(curr/cnt)>>rezfix;
-                x+=dop;
+                x+=uint32(dop);
                 curr>>=rezfix;
         }
         while(dop);

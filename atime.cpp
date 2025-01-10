@@ -99,10 +99,18 @@ time::time( int year,
     stamp = t*1000000+usec;
 }
 
-string time::toString()
+string time::toString(bool full)
 {
     time_t t=stamp/1000000;
     struct tm *val=localtime(&t);
+
+    if(!full)
+    {
+        return  string::fromIntFormat(val->tm_hour,2)+":"+
+                string::fromIntFormat(val->tm_min,2)+":"+
+                string::fromIntFormat(val->tm_sec,2)+"."+
+                string::fromIntFormat((stamp/1000)%1000,3);
+    }
 
     return string::fromIntFormat(val->tm_mday,2)+"."+
             string::fromIntFormat(val->tm_mon+1,2)+"."+

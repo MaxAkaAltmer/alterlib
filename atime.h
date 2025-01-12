@@ -75,7 +75,7 @@ namespace alt {
         static uint64 uStamp();
         static uint64 systemTick();
 
-        string toString();
+        string toString(bool full = true);
 
     private:
 

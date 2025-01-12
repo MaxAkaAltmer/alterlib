@@ -53,7 +53,7 @@ namespace alt {
         Internal* newInternal(int size)
         {
             Internal *rv;
-            int alloc=alt::utils::upsize((uint32)size);
+            int alloc=int(alt::utils::upsize((uint32)size));
             rv=(Internal*)new char[sizeof(Internal)+alloc];
             rv->alloc=alloc;
             rv->refcount=1;

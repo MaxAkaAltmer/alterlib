@@ -503,7 +503,7 @@ namespace alt {
             data=tmp;
         }
 
-        Node* find(Node *n, const K &key)
+        Node* find(Node *n, const K &key) const
         {
             if(!n)
                 return nullptr;

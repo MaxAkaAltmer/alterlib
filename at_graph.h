@@ -75,9 +75,9 @@ namespace alt {
             return nodes.contains(id);
         }
 
-        void insert(const K &id, const NodeData &data)
+        int insert(const K &id, const NodeData &data)
         {
-            nodes.insert(id,data);
+            return nodes.insert(id,data);
         }
 
         int indeOf(const K &id) const
@@ -97,7 +97,7 @@ namespace alt {
         }
         graph& removeNode(K id)
         {
-            nodes.removeMulty(id);
+            nodes.remove(id);
             links.removeWith(id);
             return *this;
         }
@@ -116,9 +116,9 @@ namespace alt {
         {
             return links.insert(n1,n2,data);
         }
-        int addLink(const K &n1, const K &n2, const LinkData &data)
+        int addLink(const K &n1, const K &n2, const LinkData &data, bool evenFullClone=true)
         {
-            return links.insertMulty(n1,n2,data);
+            return links.insertMulty(n1,n2,data,evenFullClone);
         }
         bool isLinked(const K &n1, const K &n2) const
         {

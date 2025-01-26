@@ -61,7 +61,7 @@ namespace alt {
         void lock();
         void unlock();
 
-        bool canlock();
+        bool trylock();
 
     private:
 

@@ -49,6 +49,11 @@ namespace alt {
     __inline uint32 aHash(uint32 key){ return key; }
     __inline uint32 aHash(int64 key){ return uint32((key>>32)^key); }
     __inline uint32 aHash(uint64 key){ return uint32((key>>32)^key); }
+    __inline uint32 aHash(void *key)
+    {
+        uintz tmp = unaligned_read<uintz>(&key);
+        return uint32((tmp>>32)^tmp);
+    }
     __inline uint32 aHash(const char *key)
     {
         if(!key)return 0;

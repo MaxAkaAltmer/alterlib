@@ -256,7 +256,7 @@ void semaphore::unlock()
     pthread_mutex_unlock(&hand->mutex);
 }
 
-bool semaphore::canlock()
+bool semaphore::trylock()
 {
     internalSemaphore *hand = (internalSemaphore*)internal;
     if(pthread_mutex_trylock(&hand->mutex) == EBUSY)

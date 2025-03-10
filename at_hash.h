@@ -984,7 +984,7 @@ namespace alt {
 
         struct Node
         {
-            ListNode  values;
+            ListNode  values; //todo: on pointer for avoid of recreation
             K	  key;
             uintz height = 1;
             uintz count = 1;
@@ -1624,6 +1624,20 @@ namespace alt {
 
         V& value(intz ind)
         {
+            cloneInternal();
+            uintz off = ind;
+            Node *n = findByIndex(data->top,off);
+            ListNode *l = &n->values;
+            while(off)
+            {
+                l = l->next;
+                off--;
+            }
+            return l->value;
+        }
+
+        const V& value(intz ind) const
+        {
             uintz off = ind;
             Node *n = findByIndex(data->top,off);
             ListNode *l = &n->values;
@@ -1637,6 +1651,7 @@ namespace alt {
 
         void removeByIndex(intz ind)
         {
+            cloneInternal();
             uintz off = ind;
             Node *n = findByIndex(data->top,off);
             if(!n->values.next)
@@ -1676,6 +1691,7 @@ namespace alt {
 
         void remove(const K &key)
         {
+            cloneInternal();
             Node *n=find(data->top,key);
             if(n)
                 removeEntry(n);

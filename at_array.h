@@ -64,7 +64,7 @@ namespace alt {
         T data[SIZE];
     };
 
-    template <class T>
+    template <class T, typename REF = int> //use REF = std::atomic<int> for thread safe
     class array
     {
     private:
@@ -73,7 +73,7 @@ namespace alt {
         {
             intz size;
             intz alloc;
-            int refcount;
+            REF refcount;
             T *buff;
         };
 
@@ -94,8 +94,8 @@ namespace alt {
         void deleteInternal()
         {
             if(!data)return;
-            data->refcount--;
-            if(!data->refcount)
+            int ref = --data->refcount;
+            if(!ref)
             {
                 delete []data->buff;
                 delete data;
@@ -119,7 +119,7 @@ namespace alt {
         {
             data=NULL;
         }
-        array(const array<T> &val)
+        array(const array &val)
         {
             data=val.data;
             if(data)data->refcount++;
@@ -135,7 +135,7 @@ namespace alt {
             data->buff[1]=v2;
         }
 
-        array& operator=(const array<T> &val)
+        array& operator=(const array &val)
         {
             if(data==val.data)return *this;
             deleteInternal();
@@ -147,17 +147,11 @@ namespace alt {
         {
             deleteInternal();
         }
-        array<T>& clear(bool memfree=false)
+        array& clear(bool memfree=false)
         {
             if(!data)return *this;
             if(!data->size)return *this;
-            if(data->refcount>1) //не только наше?
-            {
-                data->refcount--;
-                data=NULL;
-                return *this;
-            }
-            if(memfree)
+            if(data->refcount>1 || memfree)
             {
                 deleteInternal();
             }
@@ -180,7 +174,7 @@ namespace alt {
             return data->alloc;
         }
 
-        array<T>& append(const T &val)
+        array& append(const T &val)
         {
             if(!data)data=newInternal(0);
             if(data->refcount<2 && data->alloc>data->size)
@@ -198,7 +192,7 @@ namespace alt {
             return *this;
         }
 
-        array<T>& append(const T *buff, intz count)
+        array& append(const T *buff, intz count)
         {
             if(!count) return *this;
             if(!data)
@@ -221,7 +215,7 @@ namespace alt {
             return *this;
         }
 
-        array<T>& reserve(intz size, bool overhead = true)
+        array& reserve(intz size, bool overhead = true)
         {
             if(data && size<=data->alloc)
                 return *this;
@@ -240,7 +234,7 @@ namespace alt {
             return *this;
         }
 
-        array<T>& resize(intz size, bool overhead = true)
+        array& resize(intz size, bool overhead = true)
         {
             reserve(size, overhead);
             if(data)
@@ -250,7 +244,7 @@ namespace alt {
             return *this;
         }
 
-        array<T>& fill(const T &val)
+        array& fill(const T &val)
         {
             cloneInternal();
             if(data)
@@ -261,7 +255,7 @@ namespace alt {
             return *this;
         }
 
-        array<T>& append(const array<T> &list)
+        array& append(const array &list)
         {
             if(!list.data)return *this;
             if(!list.data->size)return *this;
@@ -285,7 +279,7 @@ namespace alt {
             return *this;
         }
 
-        array<T>& insert(intz pos, const T &val)
+        array& insert(intz pos, const T &val)
         {
             if(!data)data=newInternal(0);
 
@@ -312,7 +306,7 @@ namespace alt {
             return *this;
         }
 
-        array<T>& insert(intz pos, const T *buff, intz count)
+        array& insert(intz pos, const T *buff, intz count)
         {
             if(!count) return *this;
             if(!data)data=newInternal(count);
@@ -405,7 +399,7 @@ namespace alt {
             data->size=ind;
         }
 
-        array<T>& cut(intz ind, intz size=1)
+        array& cut(intz ind, intz size=1)
         {
             if(!data)return *this;
             if(!size || ind>=data->size)return *this;
@@ -417,7 +411,7 @@ namespace alt {
             return *this;
         }
 
-        array<T>& fastCut(int ind)
+        array& fastCut(int ind)
         {
             if(!data)return *this;
             if(ind>=data->size)return *this;
@@ -448,7 +442,7 @@ namespace alt {
             return data->buff[ind];
         }
 
-        bool operator==(const array<T> &val) const
+        bool operator==(const array &val) const
         {
             if(val.size()!=size())return false;
             if(!size())return true;
@@ -459,7 +453,7 @@ namespace alt {
             return true;
         }
 
-        bool operator<(const array<T> &val) const
+        bool operator<(const array &val) const
         {
             if(size()<val.size())return true;
             if(size()>val.size())return false;
@@ -682,7 +676,7 @@ namespace alt {
             return rv;
         }
 
-        static array<T> poly_evclid_gcd(array<T> a, array<T> b)
+        static array poly_evclid_gcd(array a, array b)
         {
             if(b.size())
             {
@@ -693,14 +687,14 @@ namespace alt {
         }
 
         //poly division - numerator in *this and reminder will be in *this
-        array<T> poly_div(const array<T>& den)
+        array poly_div(const array& den)
         {
             if(size() < den.size())
-                return array<T>();
+                return array();
             if(!den.size()) //какой аналог бесконечности???
                 return *this;
 
-            array<T> rv(size()-den.size()+1);
+            array rv(size()-den.size()+1);
 
             for (intz i=size()-den.size(); i>=0; i--)
             {
@@ -724,12 +718,12 @@ namespace alt {
         }
 
 
-        array<T> poly_mul(const array<T>& val)
+        array poly_mul(const array& val)
         {
             if(!val.size() || !size())
-                return array<T>();
+                return array();
 
-            array<T> rv(val.size()+size()-1);
+            array rv(val.size()+size()-1);
 
             rv.fill(0);
             for(intz i=0;i<size();i++)
@@ -739,11 +733,11 @@ namespace alt {
             return rv;
         }
 
-        static array<T> poly_primitive(uint n)
+        static array poly_primitive(uint n)
         {
             if(!n)
-                return array<T>();
-            array<T> rv(n+1);
+                return array();
+            array rv(n+1);
             rv[0] = -1;
 
             for(uint i=1;i<n;i++)

@@ -562,7 +562,7 @@ void semaphore::unlock()
     LeaveCriticalSection (&hand->lock);
 }
 
-bool semaphore::canlock()
+bool semaphore::trylock()
 {
     internalSemaphore *hand = (internalSemaphore*)internal;
     return TryEnterCriticalSection (&hand->lock);

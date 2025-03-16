@@ -1078,7 +1078,7 @@ namespace alt {
             Internal *tmp = new Internal;
             tmp->refcount++;
 
-            data->top = copyNodes(data->top,nullptr);
+            tmp->top = copyNodes(data->top,nullptr);
 
             deleteInternal();
             data=tmp;

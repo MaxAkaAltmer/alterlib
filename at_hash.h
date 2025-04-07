@@ -1052,6 +1052,7 @@ namespace alt {
             to = new ListNode;
             to->value = from->value;
             to->next = copyList(from->next);
+            return to;
         }
 
         Node* copyNodes(Node *from, Node *parent)

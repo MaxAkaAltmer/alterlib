@@ -33,6 +33,8 @@ namespace alt {
 
     void sleep(int us);
 
+    long long threadId();
+
     class thread
     {
     public:

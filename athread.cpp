@@ -224,6 +224,11 @@ void alt::sleep(int us)
     else usleep(us);
 }
 
+long long alt::threadId()
+{
+    return gettid();
+}
+
 struct internalSemaphore
 {
     pthread_mutex_t mutex;
@@ -529,6 +534,11 @@ bool thread::isOff()
 void alt::sleep(int us)
 {
     Sleep(us/1000);
+}
+
+long long alt::threadId()
+{
+    return GetCurrentThreadId();
 }
 
 struct internalSemaphore

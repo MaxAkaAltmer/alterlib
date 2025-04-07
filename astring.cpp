@@ -31,6 +31,22 @@ SOFTWARE.
 #include "astring_utf.h"
 #include "astring_latin.h"
 
+namespace alt {
+string operator+(const char *str, const string &Str)
+{
+    int size=alt::utils::strlen(str);
+    int nsiz=size+Str.size();
+
+    if(!size) return Str;
+    if(!Str.size()) return string(str);
+
+    string tmp(nsiz,false);
+    alt::utils::memcpy(tmp(),str,size);
+    alt::utils::memcpy(&tmp()[size],Str(),Str.size());
+    return tmp;
+}
+};
+
 using namespace alt;
 
 static bool isspace(char val)
@@ -475,21 +491,6 @@ string& string::operator=(const char *str)
     data=newInternal(size);
     if(size)alt::utils::memcpy(data->buff,str,size);
     return *this;
-}
-
-
-string alt::operator+(const char *str, const string &Str)
-{
-    int size=alt::utils::strlen(str);
-    int nsiz=size+Str.size();
-
-    if(!size) return Str;
-    if(!Str.size()) return string(str);
-
-    string tmp(nsiz,false);
-    alt::utils::memcpy(tmp(),str,size);
-    alt::utils::memcpy(&tmp()[size],Str(),Str.size());
-    return tmp;
 }
 
 

@@ -135,6 +135,18 @@ namespace alt {
             data->buff[1]=v2;
         }
 
+        void dirtyRecreate()
+        {
+            if(!data)
+                return;
+            if(data->refcount>1)
+            {
+                intz size = data->size;
+                deleteInternal();
+                newInternal(size,false);
+            }
+        }
+
         array& operator=(const array &val)
         {
             if(data==val.data)return *this;

@@ -74,7 +74,7 @@ namespace alt {
     class shadower
     {
     public:
-        shadower(){counter=compier=0;}
+        shadower(){counter=0; compier=0;}
 
         void increment(int val=1){counter=counter+val;}
         int check()

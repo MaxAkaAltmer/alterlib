@@ -64,7 +64,7 @@ namespace alt {
         T data[SIZE];
     };
 
-    template <class T, typename REF = int> //use REF = std::atomic<int> for thread safe
+    template <class T>
     class array
     {
     private:
@@ -73,7 +73,7 @@ namespace alt {
         {
             intz size;
             intz alloc;
-            REF refcount;
+            intz refcount;
             T *buff;
         };
 
@@ -100,7 +100,7 @@ namespace alt {
                 delete []data->buff;
                 delete data;
             }
-            data=NULL;
+            data = nullptr;
         }
 
         void cloneInternal()
@@ -135,16 +135,10 @@ namespace alt {
             data->buff[1]=v2;
         }
 
-        void dirtyRecreate()
+        int refCount() const
         {
-            if(!data)
-                return;
-            if(data->refcount>1)
-            {
-                intz size = data->size;
-                deleteInternal();
-                newInternal(size,false);
-            }
+            if(!data) return 1;
+            return data->refcount;
         }
 
         array& operator=(const array &val)

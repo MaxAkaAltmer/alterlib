@@ -36,14 +36,14 @@ namespace alt {
             T *buff;
             volatile int len,up,down;
      public:
-            ring(){buff=0;len=1;up=down=0;}
-            ring(int size){buff=new T[size+1];len=size+1;up=down=0;}
+            ring(){buff=0;len=1;up=0;down=0;}
+            ring(int size){buff=new T[size+1];len=size+1;up=0;down=0;}
             ~ring(){if(buff)delete []buff;}
 
             void Resize(int size)
             {
                 if(buff)delete []buff;
-                buff=new T[size+1];len=size+1;up=down=0;
+                buff=new T[size+1];len=size+1;up=0;down=0;
             }
 
             int Read(T *data, int size)

@@ -135,6 +135,20 @@ namespace alt {
             }
         }
 
+        void makeGreyScale(uint8 *buff)
+        {
+            if(data)
+            {
+                for(int i=0;i<data->w*data->h*data->d;i++)
+                {
+                    int gray=((data->buff[i]&0xff)+
+                            ((data->buff[i]>>8)&0xff)+
+                            ((data->buff[i]>>16)&0xff))/3;
+                    buff[i]=gray;
+                }
+            }
+        }
+
         void makeGreyScale()
         {
             if(data)

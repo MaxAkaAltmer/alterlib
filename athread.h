@@ -27,7 +27,10 @@ SOFTWARE.
 #ifndef ATHREAD_H
 #define ATHREAD_H
 
+#include "atypes.h"
+#include "at_array.h"
 #include "adelegate.h"
+#include <atomic>
 
 namespace alt {
 
@@ -92,6 +95,153 @@ namespace alt {
 
     private:
         volatile int counter,compier;
+    };
+
+    //////////////////////////////////////////////////////////////////////////////////////
+
+    struct sharedArrayInternal
+    {
+        std::atomic<int> refcount = 0;
+        alt::array<uint8> buffer;
+    };
+
+    class sharedArrayRef
+    {
+    public:
+        sharedArrayRef()
+        {
+        }
+        sharedArrayRef(sharedArrayInternal *hand)
+            : handler(hand)
+        {
+            if(!hand)
+                return;
+            handler->refcount++;
+        }
+
+        ~sharedArrayRef()
+        {
+            if(handler)
+                handler->refcount--;
+        }
+
+        sharedArrayRef& operator = (const sharedArrayRef& val)
+        {
+            if(handler)
+                handler->refcount--;
+            if(!val.handler)
+            {
+                handler = nullptr;
+                return *this;
+            }
+            handler = val.handler;
+            handler->refcount++;
+            return *this;
+        }
+
+        void clear()
+        {
+            if(!handler)
+                return;
+            handler->refcount--;
+            handler = nullptr;
+        }
+
+        const uint8& operator[](uintz ind) const
+        {
+            return handler->buffer[ind];
+        }
+
+        const uint8* operator()() const
+        {
+            if(!handler)
+                return nullptr;
+            return handler->buffer();
+        }
+
+        uintz size() const
+        {
+            if(!handler)
+                return 0;
+            return handler->buffer.size();
+        }
+
+        bool is_valid() const
+        {
+            return handler;
+        }
+
+    private:
+
+        sharedArrayInternal *handler = nullptr;
+
+    };
+
+    class sharedArrays
+    {
+    public:
+        sharedArrays();
+        virtual ~sharedArrays();
+
+        void attach();
+        void dettach();
+        void cleanup();
+
+        void reserve(uint32 size, int count)
+        {
+            attach();
+            for(int i=0;i<count;i++)
+            {
+                sharedArrayInternal *tmp = new sharedArrayInternal;
+                tmp->buffer.resize(size,false);
+                ptr->append(tmp);
+            }
+        }
+
+        void allocate(uintz size)
+        {
+            attach();
+            sharedArrayInternal *tmp = new sharedArrayInternal;
+            tmp->buffer.resize(size,false);
+            ptr->append(tmp);
+        }
+
+        int findIndex(uintz size)
+        {
+            attach();
+            for(int i=0;i<ptr->size();i++)
+            {
+                if(!(*ptr)[i]->refcount)
+                {
+                    (*ptr)[i]->buffer.resize(size,false);
+                    return i;
+                }
+            }
+            allocate(size);
+            return ptr->size()-1;
+        }
+
+        sharedArrayRef getReference(int index)
+        {
+            return sharedArrayRef((*ptr)[index]);
+        }
+
+        uint8* getPointer(int index)
+        {
+            return (*ptr)[index]->buffer();
+        }
+
+    protected:
+
+        static std::atomic<int> initialized;
+
+        static thread_local alt::array<sharedArrayInternal*> *ptr;
+
+        semaphore mutex;
+        alt::array<alt::array<sharedArrayInternal*>*> arrays;
+        alt::array<alt::array<sharedArrayInternal*>*> to_remove;
+        long long root_thread_id;
+
     };
 
 } //namespace alt

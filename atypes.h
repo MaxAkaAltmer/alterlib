@@ -73,6 +73,17 @@ typedef  unsigned short     charx;
 
 namespace alt {
 
+    constexpr uint64 makeID64(const char *str)
+    {
+        uint64 rv = 0;
+        if(str)
+        {
+            for(int i=0;i<sizeof(uint64) && str[i];i++)
+                rv |= ((uint64)(unsigned char)str[i])<<(i*8);
+        }
+        return rv;
+    }
+
     template<class T>
     __inline T roundup(T size, T align)
     {

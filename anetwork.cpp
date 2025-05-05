@@ -27,6 +27,8 @@ SOFTWARE.
 #include "anetwork.h"
 #include "athread.h"
 #include "atime.h"
+#include "crypto/crc32.h"
+
 #if !defined(__linux) && !defined(__APPLE__)
     #include <winsock2.h>
     #include <process.h>

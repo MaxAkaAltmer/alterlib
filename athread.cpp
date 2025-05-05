@@ -28,6 +28,119 @@ SOFTWARE.
 
 using namespace alt;
 
+thread_local alt::array<sharedArrayInternal*>* sharedArrays::ptr = nullptr;
+std::atomic<int> sharedArrays::initialized = 0;
+
+sharedArrays::sharedArrays()
+{
+    if(initialized)
+    {
+        throw std::runtime_error("sharedArrays can't be created more then once!");
+    }
+    root_thread_id = threadId();
+    attach();
+}
+
+sharedArrays::~sharedArrays()
+{
+    initialized--;
+    while(initialized)
+    {
+        sleep(10);
+    }
+
+    for(int i=0; i<arrays.size(); i++)
+    {
+        for(int j=0; j<(*arrays[i]).size(); j++)
+        {
+            if((*arrays[i])[j]->refcount == 0)
+            {
+                delete (*arrays[i])[j];
+            }
+            else
+            {
+                j--;
+                sleep(10);
+            }
+        }
+        delete arrays[i];
+    }
+
+    for(int i=0; i<to_remove.size(); i++)
+    {
+        for(int j=0; j<(*to_remove[i]).size(); j++)
+        {
+            if((*to_remove[i])[j]->refcount == 0)
+            {
+                delete (*to_remove[i])[j];
+            }
+            else
+            {
+                j--;
+                sleep(10);
+            }
+        }
+        delete to_remove[i];
+    }
+}
+
+void sharedArrays::attach()
+{
+    if(ptr)
+        return;
+
+    initialized++;
+
+    ptr = new alt::array<sharedArrayInternal*>;
+
+    mutex.lock();
+    arrays.append(ptr);
+    mutex.unlock();
+
+    cleanup();
+}
+
+void sharedArrays::dettach()
+{
+    if(!ptr)
+        return;
+
+    if(root_thread_id != threadId())
+        initialized--;
+
+    mutex.lock();
+    to_remove.append(ptr);
+    arrays.fastCut(arrays.indexOf(ptr));
+    mutex.unlock();
+
+    ptr = nullptr;
+
+    cleanup();
+}
+
+void sharedArrays::cleanup()
+{
+    mutex.lock();
+    for(int i=to_remove.size()-1; i>=0; i--)
+    {
+        for(int j=(*to_remove[i]).size()-1; j>=0; j--)
+        {
+            if((*to_remove[i])[j]->refcount == 0)
+            {
+                delete (*to_remove[i])[j];
+                to_remove[i]->fastCut(j);
+            }
+        }
+        if(!to_remove.size())
+        {
+            delete to_remove[i];
+            to_remove.fastCut(i);
+        }
+
+    }
+    mutex.unlock();
+}
+
 #if defined(linux) || defined(__APPLE__)
 
 #include <unistd.h>

@@ -30,6 +30,8 @@ SOFTWARE.
 #include "astring.h"
 #include "avariant.h"
 #include "at_hash.h"
+#include "adelegate.h"
+#include "athread.h"
 
 namespace alt {
 

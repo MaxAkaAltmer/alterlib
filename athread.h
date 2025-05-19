@@ -90,7 +90,7 @@ namespace alt {
 
         int distance()
         {
-            return compier-compier;
+            return counter-compier;
         }
 
     private:

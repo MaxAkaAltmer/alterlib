@@ -73,6 +73,22 @@ typedef  unsigned short     charx;
 
 namespace alt {
 
+    constexpr uint64 makeSTATE(const char* str)
+    {   //based on fnv1a hash
+        const uint64 prime = 0x100000001b3;
+        uint64 hash = 0xcbf29ce484222325;
+
+        if (!str) {
+            return hash;
+        }
+
+        while (*str != '\0') {
+            hash ^= *str++;
+            hash *= prime;
+        }
+        return hash;
+    }
+
     constexpr uint64 makeID64(const char *str)
     {
         uint64 rv = 0;

@@ -119,6 +119,11 @@ namespace alt {
             handler->refcount++;
         }
 
+        sharedArrayRef(const sharedArrayRef& val)
+        {
+            *this = val;
+        }
+
         ~sharedArrayRef()
         {
             if(handler)

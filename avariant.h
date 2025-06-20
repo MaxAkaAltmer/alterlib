@@ -32,6 +32,7 @@ SOFTWARE.
 #include "at_array.h"
 #include "abyte_array.h"
 #include "at_fraction.h"
+#include "at_dim.h"
 
 namespace alt {
 
@@ -120,6 +121,24 @@ namespace alt {
             *data.vArray=val;
         }
 
+        variant(const array<alt::string> &val)
+        {
+            type=tArray;
+            data.vArray=new array<variant>;
+
+            for(int i=0;i<val.size();i++)
+            {
+                data.vArray->append(val[i]);
+            }
+        }
+
+        variant(const dimensions<uintz> &val)
+        {
+            type=tDim;
+            data.vDim=new dimensions<uintz>;
+            *data.vDim = val;
+        }
+
         variant(const char *val)
         {
             type=tString;
@@ -164,6 +183,9 @@ namespace alt {
             case tArray:
                 delete data.vArray;
                 break;
+            case tDim:
+                delete data.vDim;
+                break;
             default:
                 break;
             };
@@ -172,17 +194,19 @@ namespace alt {
 
         //////////////////////////////////////////////////////////////////////////////////
         //преобразовалки
-        bool toBool(bool *ok=NULL) const;
-        intx toInt(bool *ok=NULL) const;
-        uintx toUInt(bool *ok=NULL) const {return toInt(ok);}
-        realx toReal(bool *ok=NULL) const;
-        byteArray toData(bool *ok=NULL) const;
-        string toString(bool *ok=NULL) const;
-        fraction<intx> toFraction(bool *ok=NULL) const;
-        hash<string, variant> toHash(bool *ok=NULL) const;
-        array<variant> toArray(bool *ok=NULL) const;
+        bool toBool(bool *ok = nullptr) const;
+        intx toInt(bool *ok = nullptr) const;
+        uintx toUInt(bool *ok = nullptr) const {return toInt(ok);}
+        realx toReal(bool *ok = nullptr) const;
+        byteArray toData(bool *ok = nullptr) const;
+        string toString(bool *ok = nullptr, char sep = ',') const;
+        fraction<intx> toFraction(bool *ok = nullptr) const;
+        hash<string, variant> toHash(bool *ok = nullptr) const;
+        dimensions<uintz> toDim(bool *ok = nullptr) const;
+        dimensions<uintz>* pointDim();
+        array<variant> toArray(bool *ok = nullptr) const;
         array<variant>* pointArray();
-        void* toPointer(bool *ok=NULL) const;
+        void* toPointer(bool *ok = nullptr) const;
 
         uintx size() const;
 
@@ -203,6 +227,7 @@ namespace alt {
         bool isString() const {return type==tString;}
         bool isData() const {return type==tData;}
         bool isHash() const {return type==tHash;}
+        bool isDim() const {return type==tDim;}
         bool isArray() const {return type==tArray;}
         bool isPointer() const {return type==tPointer;}
 
@@ -248,6 +273,7 @@ namespace alt {
             tData,
             tHash,
             tArray,
+            tDim,
             tPointer
         };
 
@@ -265,6 +291,7 @@ namespace alt {
             hash<string,variant> *vHash;
             array<variant> *vArray;
             void *vPointer;
+            dimensions<uintz> *vDim;
         }data;
     };
 

@@ -432,6 +432,26 @@ namespace alt {
             return *this;
         }
 
+        array left(int size) const
+            {return mid(0,size);}
+        array right(int from) const
+            {return mid(from,data->size-from);}
+        array mid(int from, int size) const
+        {
+            array retval;
+
+            if(from<0){size+=from;from=0;}
+            if(from>=data->size || size<=0)return retval;
+            if(from+size>data->size)size=data->size-from;
+
+            retval.resize(size);
+            for(int i=0;i<size;i++)
+            {
+                retval.data->buff[i] = data->buff[from+i];
+            }
+            return retval;
+        }
+
         const T& operator[](int ind) const
         {
     #ifdef ENABLE_BUGEATER

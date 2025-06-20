@@ -555,6 +555,17 @@ namespace alt {
             return ok;
         }
 
+        static bool isIntegerList(const array<string> &list)
+        {
+            for(int i=0;i<list.size();i++)
+            {
+                intx test;
+                if(!list[i].tryInt(test))
+                    return false;
+            }
+            return true;
+        }
+
         template <class I> I toInt(int base=10, bool *ok=NULL) const
         {
             I rv=0;

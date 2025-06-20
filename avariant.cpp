@@ -122,7 +122,7 @@ realx variant::toReal(bool *ok) const
     return 0.0;
 }
 
-string variant::toString(bool *ok) const
+string variant::toString(bool *ok, char sep) const
 {
     if(ok)*ok=true;
     switch(type)
@@ -140,7 +140,16 @@ string variant::toString(bool *ok) const
         return (*data.vData).toHex();
     case tFraction:
         return data.vFraction->toString();
-        //todo: all cases
+    case tDim:
+        return data.vDim->toString(sep);
+    case tArray: {
+        string rv;
+        for(int i=0;i<(*data.vArray).size();i++)
+        {
+            if(i) rv.append(sep);
+            rv += (*data.vArray)[i].toString();
+        }
+        return rv; }
     default:
         if(ok)*ok=false;
         break;
@@ -160,6 +169,8 @@ uintx variant::size() const
         return data.vArray->size();
     case tInvalide:
         return 0;
+    case tDim:
+        return data.vDim->size();
     case tHash:
         return data.vHash->size();
     default:
@@ -195,6 +206,23 @@ hash<string,variant> variant::toHash(bool *ok) const
     return hash<string,variant>();
 }
 
+dimensions<uintz> variant::toDim(bool *ok=NULL) const
+{
+    if(isDim())
+    {
+        if(ok)*ok=true;
+        return (*data.vDim);
+    }
+    if(ok)*ok=false;
+    return dimensions<uintz>();
+}
+
+dimensions<uintz>* variant::pointDim()
+{
+    if(isDim())return data.vDim;
+    return nullptr;
+}
+
 array<variant> variant::toArray(bool *ok) const
 {
     if(isArray())
@@ -209,7 +237,7 @@ array<variant> variant::toArray(bool *ok) const
 array<variant>* variant::pointArray()
 {
     if(isArray())return data.vArray;
-    return NULL;
+    return nullptr;
 }
 
 void* variant::toPointer(bool *ok) const
@@ -228,6 +256,11 @@ void* variant::toPointer(bool *ok) const
     {
         if(ok)*ok=true;
         return (*data.vString)();
+    }
+    else if(isDim())
+    {
+        if(ok)*ok=true;
+        return (*data.vDim)();
     }
     if(ok)*ok=false;
     return NULL;
@@ -486,6 +519,7 @@ bool variant::operator==(const variant &val) const
     if(type==tReal && data.vReal==val.data.vReal)return true;
     if(type==tInt && data.vInt==val.data.vInt)return true;
     if(type==tFraction && (*data.vFraction)==(*val.data.vFraction))return true;
+    if(type==tDim && (*data.vDim)==(*val.data.vDim))return true;
     if(type==tPointer && data.vPointer==val.data.vPointer)return true;
     if(type==tInvalide)return true;
     return false;
@@ -595,6 +629,10 @@ variant& variant::operator=(const variant &val)
     case tFraction:
         if(type!=val.type)data.vFraction=new fraction<intx>;
         *(data.vFraction)=*(val.data.vFraction);
+        break;
+    case tDim:
+        if(type!=val.type)data.vDim=new dimensions<uintz>;
+        *(data.vDim)=*(val.data.vDim);
         break;
     default:
         data=val.data;

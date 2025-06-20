@@ -555,6 +555,25 @@ namespace alt {
             return ok;
         }
 
+        template <class I>
+        static array<I> toIntegerList(const array<string> &list, bool *ok = nullptr)
+        {
+            array<I> rv;
+            if(ok)
+                *ok = true;
+            for(int i=0;i<list.size();i++)
+            {
+                I val = 0;
+                if(!list[i].tryInt(val))
+                {
+                    if(ok)
+                        *ok = false;
+                }
+                rv.append(val);
+            }
+            return rv;
+        }
+
         static bool isIntegerList(const array<string> &list)
         {
             for(int i=0;i<list.size();i++)
@@ -566,7 +585,7 @@ namespace alt {
             return true;
         }
 
-        template <class I> I toInt(int base=10, bool *ok=NULL) const
+        template <class I> I toInt(int base=10, bool *ok = nullptr) const
         {
             I rv=0;
             bool neg=false;

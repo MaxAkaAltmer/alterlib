@@ -32,3 +32,6 @@
 [submodule "external/clipp"]
 	path = external/clipp
 	url = https://github.com/MaxAkaAltmer/clipp.git
+[submodule "external/miniaudio"]
+	path = external/miniaudio
+	url = https://github.com/MaxAkaAltmer/miniaudio.git

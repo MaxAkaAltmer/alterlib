@@ -124,7 +124,7 @@ namespace alt {
 
         char* gets(char *str, int num) //port helper
         {
-            if(atEnd())return NULL;
+            if(atEnd())return nullptr;
             int cnt=0;
             utils::memset<char>(str,0,num);
             while(cnt<(num-1) && !atEnd())
@@ -183,16 +183,16 @@ namespace alt {
         string fileName(){return fname;}
         bool setFileName(const string &name);
 
-        void close();
-        bool open(int flags=OReadOnly);
+        void close() override;
+        bool open(int flags=OReadOnly) override;
         bool create(){return open(OTruncate|OReadWrite);}
 
-        int64 size() const;
-        bool seek(int64 pos);
-        int64 pos() const;
+        int64 size() const override;
+        bool seek(int64 pos) override;
+        int64 pos() const override;
 
         bool resize(int64 size);
-        bool isSequential() const;
+        bool isSequential() const override;
 
         static alt::time changeTime(string fname);
 
@@ -203,8 +203,8 @@ namespace alt {
 
     private:
 
-        int read_hand(void *buff, int size);
-        int write_hand(const void *buff, int size);
+        int read_hand(void *buff, int size) override;
+        int write_hand(const void *buff, int size) override;
 
         string fname;
         int handler;

@@ -25,11 +25,12 @@ SOFTWARE.
 *****************************************************************************/
 
 #include "athread.h"
+#include <stdexcept>
 
 using namespace alt;
 
 thread_local alt::array<sharedArrayInternal*>* sharedArrays::ptr = nullptr;
-std::atomic<int> sharedArrays::initialized = 0;
+std::atomic<int> sharedArrays::initialized(0);
 
 sharedArrays::sharedArrays()
 {

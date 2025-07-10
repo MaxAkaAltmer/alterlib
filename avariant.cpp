@@ -140,8 +140,9 @@ string variant::toString(bool *ok, char sep) const
         return (*data.vData).toHex();
     case tFraction:
         return data.vFraction->toString();
-    case tDim:
-        return data.vDim->toString(sep);
+    case tDim: {
+        string sep_str = string::fromFix(&sep,1);
+        return data.vDim->toString(sep_str); }
     case tArray: {
         string rv;
         for(int i=0;i<(*data.vArray).size();i++)
@@ -206,7 +207,7 @@ hash<string,variant> variant::toHash(bool *ok) const
     return hash<string,variant>();
 }
 
-dimensions<uintz> variant::toDim(bool *ok=NULL) const
+dimensions<uintz> variant::toDim(bool *ok) const
 {
     if(isDim())
     {

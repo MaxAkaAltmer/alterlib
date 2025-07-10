@@ -70,7 +70,7 @@ namespace alt {
 
     private:
 
-        void *internal;
+        void *internal = nullptr;
 
     };
 

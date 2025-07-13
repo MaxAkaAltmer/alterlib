@@ -683,7 +683,7 @@ namespace alt {
         ///////////////////////////////////////////////////////////////////////////
 
         static string fromReal(real val,int prec)
-        {
+        {   //todo: собственный разбор
             string format="%."+string::fromInt(prec)+"g";
             return print(format(),val);
         }

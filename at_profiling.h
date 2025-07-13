@@ -31,7 +31,7 @@ SOFTWARE.
 
 namespace alt {
 
-template<typename T = std::size_t>
+template<typename T = uint64>
 class profiling {
 public:
     explicit profiling(string name = string(), int intervalCount = 10)
@@ -45,11 +45,9 @@ public:
         {
             interval_average_ = time_acc_ / count_;
 
-            if constexpr (!std::is_void_v<T>)
-            {
-                traffic_average_ = static_cast<double>(traffic_acc_) / count_;
-                traffic_acc_ = T{};
-            }
+            traffic_average_ = static_cast<double>(traffic_acc_) / count_;
+            last_traffic_acc_ = traffic_acc_;
+            traffic_acc_ = 0;
 
             last_sample_count_ = count_;
             time_acc_ = 0.0;
@@ -57,15 +55,12 @@ public:
         }
     }
 
-    void push(double interval, T traffic = {})
+    void push(double interval, T traffic = 0)
     {
         count_++;
         time_acc_ += interval;
 
-        if constexpr (!std::is_void_v<T>)
-        {
-            traffic_acc_ += traffic;
-        }
+        traffic_acc_ += traffic;
 
         if (threshold_>0 && count_ >= threshold_)
         {
@@ -75,7 +70,7 @@ public:
         has_start_ = false;
     }
 
-    void start(T traffic = {})
+    void start(T traffic = 0)
     {
         uint64 now = alt::time::uStamp();
         if (has_start_)
@@ -88,7 +83,7 @@ public:
         has_start_ = true;
     }
 
-    void end(T traffic = {})
+    void end(T traffic = 0)
     {
         if (has_start_)
         {
@@ -98,18 +93,17 @@ public:
         }
     }
 
-    void reset() {
+    void reset()
+    {
         count_ = 0;
         time_acc_ = 0.0;
         interval_average_ = 0.0;
         last_sample_count_ = 0;
         has_start_ = false;
 
-        if constexpr (!std::is_void_v<T>)
-        {
-            traffic_acc_ = T{};
-            traffic_average_ = 0.0;
-        }
+        traffic_acc_ = 0;
+        traffic_average_ = 0.0;
+        last_traffic_acc_ = 0;
     }
 
     double getAverage() const
@@ -117,22 +111,24 @@ public:
         return last_sample_count_ > 0 ? interval_average_ : 0.0;
     }
 
+    double getFPS() const
+    {
+        if (last_sample_count_ == 0 || interval_average_ <= 0.0)
+            return 0.0;
+
+        double fps = 1000.0 / interval_average_;
+
+        return fps;
+    }
+
     double getTrafficAverage() const
     {
-        if constexpr (!std::is_void_v<T>) {
-            return last_sample_count_ > 0 ? traffic_average_ : 0.0;
-        } else {
-            return 0.0;
-        }
+        return last_sample_count_ > 0 ? traffic_average_ : 0.0;
     }
 
     T getTraffic() const
     {
-        if constexpr (!std::is_void_v<T>) {
-            return traffic_acc_;
-        } else {
-            return T{};
-        }
+        return traffic_acc_;
     }
 
     const string& getName() const { return name_; }
@@ -158,16 +154,9 @@ public:
         rv += ", events = " + string::fromInt(last_sample_count_)
             + ", time = " + string::fromReal(time_acc_,4) + " ms";
 
-        if constexpr (!std::is_void_v<T>)
+        if (last_sample_count_ > 0 && last_traffic_acc_)
         {
-            if (last_sample_count_ > 0)
-            {
-                rv += ", traffic avg = " +string::fromInt(traffic_average_,2);
-            }
-            else
-            {
-                rv += ", traffic avg = N/A";
-            }
+            rv += ", traffic avg = " +string::fromInt(traffic_average_,2);
         }
 
         return rv;
@@ -212,12 +201,13 @@ private:
     int threshold_;
     int count_ = 0;
     int last_sample_count_ = 0;
+    T last_traffic_acc_ = 0;
 
     double time_acc_ = 0.0;
     double interval_average_ = 0.0;
 
     double traffic_average_ = 0.0;
-    [[maybe_unused]] T traffic_acc_{};
+    T traffic_acc_ = 0;
 
     uint64 start_time_ = 0;
     bool has_start_ = false;

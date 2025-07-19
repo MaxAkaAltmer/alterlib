@@ -35,3 +35,6 @@
 [submodule "external/miniaudio"]
 	path = external/miniaudio
 	url = https://github.com/MaxAkaAltmer/miniaudio.git
+[submodule "external/libchdr"]
+	path = external/libchdr
+	url = https://github.com/MaxAkaAltmer/libchdr.git

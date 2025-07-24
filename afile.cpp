@@ -58,6 +58,508 @@ SOFTWARE.
 
 using namespace alt;
 
+#if !defined(linux) && !defined(__APPLE__)
+#include <winioctl.h>
+#include <ntddcdrm.h> // или <ntddcdvd.h>
+#include <ntddscsi.h>
+
+#include <initguid.h>
+#include <devguid.h>
+#include <SetupAPI.h>
+#include <string>
+#include <iostream>
+#include <iomanip>
+#include <stdio.h>
+#include <vector>
+#include <map>
+
+#pragma comment(lib, "SetupAPI.lib")
+
+static string DriveTypeToString(DriveType t)
+{
+    switch (t) {
+        case DriveType::Optical: return "Optical";
+        case DriveType::Floppy: return "Floppy";
+        case DriveType::Tape: return "Tape";
+        case DriveType::RAM: return "RAM";
+        case DriveType::Removable: return "Removable";
+        case DriveType::Fixed: return "Fixed";
+        default: return "Unknown";
+    }
+}
+
+static string GetDeviceFriendlyName(const string& deviceInterfacePath) {
+    // Получаем список устройств
+    HDEVINFO hDevInfo = SetupDiCreateDeviceInfoList(nullptr, nullptr);
+    if (hDevInfo == INVALID_HANDLE_VALUE)
+        return {};
+
+    // Открываем интерфейс устройства
+    if (!SetupDiOpenDeviceInterfaceA(hDevInfo, deviceInterfacePath(), 0, nullptr)) {
+        SetupDiDestroyDeviceInfoList(hDevInfo);
+        return {};
+    }
+
+    // Получаем SP_DEVINFO_DATA
+    SP_DEVINFO_DATA devInfoData = {};
+    devInfoData.cbSize = sizeof(devInfoData);
+    if (!SetupDiEnumDeviceInfo(hDevInfo, 0, &devInfoData)) {
+        SetupDiDestroyDeviceInfoList(hDevInfo);
+        return {};
+    }
+
+    // Пробуем получить Friendly Name
+    char buffer[512];
+    if (SetupDiGetDeviceRegistryPropertyA(
+            hDevInfo,
+            &devInfoData,
+            SPDRP_FRIENDLYNAME,
+            nullptr,
+            (PBYTE)buffer,
+            sizeof(buffer),
+            nullptr)) {
+        SetupDiDestroyDeviceInfoList(hDevInfo);
+        return buffer;
+    }
+    // Если нет Friendly Name, пробуем Device Description
+    if (SetupDiGetDeviceRegistryPropertyA(
+            hDevInfo,
+            &devInfoData,
+            SPDRP_DEVICEDESC,
+            nullptr,
+            (PBYTE)buffer,
+            sizeof(buffer),
+            nullptr)) {
+        SetupDiDestroyDeviceInfoList(hDevInfo);
+        return buffer;
+    }
+
+    SetupDiDestroyDeviceInfoList(hDevInfo);
+    return string();
+}
+
+static DriveType GetDriveTypeFromDevice(const string& devicePath)
+{
+    HANDLE hDevice = CreateFileA(
+        devicePath(),
+        0,
+        FILE_SHARE_READ,
+        nullptr,
+        OPEN_EXISTING,
+        0,
+        nullptr
+    );
+    if (hDevice == INVALID_HANDLE_VALUE)
+        return DriveType::Unknown;
+
+    STORAGE_PROPERTY_QUERY query = { StorageDeviceProperty, PropertyStandardQuery };
+    STORAGE_DEVICE_DESCRIPTOR* desc = (STORAGE_DEVICE_DESCRIPTOR*)malloc(1024);
+    DWORD bytesReturned;
+    DriveType result = DriveType::Unknown;
+
+    if (DeviceIoControl(
+            hDevice,
+            IOCTL_STORAGE_QUERY_PROPERTY,
+            &query,
+            sizeof(query),
+            desc,
+            1024,
+            &bytesReturned,
+            nullptr)) {
+        // Определяем тип
+
+        /*
+        switch (desc->BusType) {
+        case BusTypeAtapi:
+        case BusTypeScsi:
+        ...
+        }*/
+
+        result = desc->RemovableMedia ? DriveType::Removable : DriveType::Fixed;
+
+    }
+    free(desc);
+    CloseHandle(hDevice);
+
+    return result;
+}
+
+static array<string> list_devices(const GUID* guid)
+{
+    array<string> rv;
+
+    HDEVINFO hDevInfo = SetupDiGetClassDevs(guid, nullptr, nullptr, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+    if (hDevInfo == INVALID_HANDLE_VALUE) return rv;
+
+    SP_DEVICE_INTERFACE_DATA devInterfaceData;
+    devInterfaceData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+
+    for (DWORD i = 0; SetupDiEnumDeviceInterfaces(hDevInfo, nullptr, guid, i, &devInterfaceData); ++i) {
+        char devicePath[512];
+        SP_DEVICE_INTERFACE_DETAIL_DATA_A *detailData = (SP_DEVICE_INTERFACE_DETAIL_DATA_A*)malloc(1024);
+        detailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A);
+        DWORD requiredSize = 0;
+        if (SetupDiGetDeviceInterfaceDetailA(hDevInfo, &devInterfaceData, detailData, 1024, &requiredSize, nullptr)) {
+            rv.append(detailData->DevicePath);
+        }
+        free(detailData);
+    }
+    SetupDiDestroyDeviceInfoList(hDevInfo);
+    return rv;
+}
+
+static string GetDeviceInterfacePathByDriveLetter(char driveLetter)
+{
+    // 1. Открываем том по букве
+    std::string root = "\\\\.\\";
+    root += driveLetter;
+    root += ':';
+
+    HANDLE hVolume = CreateFileA(
+        root.c_str(),
+        0,
+        FILE_SHARE_READ,
+        nullptr,
+        OPEN_EXISTING,
+        0,
+        nullptr
+    );
+    if (hVolume == INVALID_HANDLE_VALUE)
+        return {};
+
+    // 2. Получаем номер физического устройства
+    STORAGE_DEVICE_NUMBER sdn = {0};
+    DWORD bytesReturned = 0;
+    BOOL ok = DeviceIoControl(
+        hVolume,
+        IOCTL_STORAGE_GET_DEVICE_NUMBER,
+        nullptr,
+        0,
+        &sdn,
+        sizeof(sdn),
+        &bytesReturned,
+        nullptr
+    );
+    CloseHandle(hVolume);
+    if (!ok || (sdn.DeviceType != FILE_DEVICE_DISK && sdn.DeviceType != FILE_DEVICE_CD_ROM))
+        return {};
+
+    // 3. Перебираем все устройства через SetupAPI для дисков и CD-ROM
+    const GUID* guids[] = { &GUID_DEVINTERFACE_DISK, &GUID_DEVINTERFACE_CDROM, &GUID_DEVINTERFACE_FLOPPY };
+
+    for (int g = 0; g < 2; ++g) {
+        HDEVINFO hDevInfo = SetupDiGetClassDevs(guids[g], nullptr, nullptr, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+        if (hDevInfo == INVALID_HANDLE_VALUE)
+            continue;
+
+        SP_DEVICE_INTERFACE_DATA devInterfaceData;
+        devInterfaceData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+
+        for (DWORD i = 0; SetupDiEnumDeviceInterfaces(hDevInfo, nullptr, guids[g], i, &devInterfaceData); ++i) {
+            DWORD requiredSize = 0;
+            SetupDiGetDeviceInterfaceDetailA(hDevInfo, &devInterfaceData, nullptr, 0, &requiredSize, nullptr);
+            if (requiredSize == 0)
+                continue;
+
+            SP_DEVICE_INTERFACE_DETAIL_DATA_A* detailData = (SP_DEVICE_INTERFACE_DETAIL_DATA_A*)malloc(requiredSize);
+            if (!detailData)
+                continue;
+            detailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A);
+
+            if (SetupDiGetDeviceInterfaceDetailA(hDevInfo, &devInterfaceData, detailData, requiredSize, nullptr, nullptr)) {
+                // 4. Открываем устройство
+                HANDLE hDevice = CreateFileA(
+                    detailData->DevicePath,
+                    0,
+                    FILE_SHARE_READ,
+                    nullptr,
+                    OPEN_EXISTING,
+                    0,
+                    nullptr
+                );
+                if (hDevice != INVALID_HANDLE_VALUE)
+                {
+                    STORAGE_DEVICE_NUMBER sdn2 = {0};
+                    DWORD bytesReturned2 = 0;
+                    if (DeviceIoControl(
+                            hDevice,
+                            IOCTL_STORAGE_GET_DEVICE_NUMBER,
+                            nullptr,
+                            0,
+                            &sdn2,
+                            sizeof(sdn2),
+                            &bytesReturned2,
+                            nullptr))
+                    {
+                        if (sdn2.DeviceType == sdn.DeviceType && sdn2.DeviceNumber == sdn.DeviceNumber)
+                        {
+                            string result = detailData->DevicePath;
+                            CloseHandle(hDevice);
+                            free(detailData);
+                            SetupDiDestroyDeviceInfoList(hDevInfo);
+                            return result;
+                        }
+                    }
+                    CloseHandle(hDevice);
+                }
+            }
+            free(detailData);
+        }
+        SetupDiDestroyDeviceInfoList(hDevInfo);
+    }
+    return string();
+}
+
+#define SPT_CDB_SIZE 12
+
+static bool send_scsi_command(
+    HANDLE hDevice,
+    const std::vector<BYTE>& cdb,
+    std::vector<BYTE>& dataBuffer,
+    bool dataIn = true,
+    DWORD timeout = 10 * 1000
+) {
+    SCSI_PASS_THROUGH_DIRECT sptd = { 0 };
+    sptd.Length = sizeof(SCSI_PASS_THROUGH_DIRECT);
+    sptd.CdbLength = (UCHAR)cdb.size();
+    sptd.DataIn = dataIn ? SCSI_IOCTL_DATA_IN : SCSI_IOCTL_DATA_OUT;
+    sptd.DataTransferLength = (ULONG)dataBuffer.size();
+    sptd.TimeOutValue = timeout / 1000;
+    sptd.DataBuffer = dataBuffer.data();
+    memcpy(sptd.Cdb, cdb.data(), cdb.size());
+
+    DWORD returned = 0;
+    BOOL ok = DeviceIoControl(
+        hDevice,
+        IOCTL_SCSI_PASS_THROUGH_DIRECT,
+        &sptd, sizeof(sptd),
+        &sptd, sizeof(sptd),
+        &returned,
+        nullptr
+    );
+    return ok;
+}
+
+static std::vector<BYTE> read_full_toc(HANDLE hDevice)
+{
+    std::vector<BYTE> cdb(SPT_CDB_SIZE, 0);
+    cdb[0] = 0x43; // READ TOC/PMA/ATIP
+    cdb[2] = 0x02; // Format = 0x02 (Full TOC)
+    size_t allocLen = 2048; // С запасом
+    cdb[7] = (allocLen >> 8) & 0xFF;
+    cdb[8] = allocLen & 0xFF;
+
+    std::vector<BYTE> buffer(allocLen, 0);
+    if (!send_scsi_command(hDevice, cdb, buffer)) {
+        std::cerr << "SCSI READ TOC (Full TOC) failed\n";
+        return {};
+    }
+    // DataLength — первые 2 байта
+    WORD dataLen = (buffer[0] << 8) | buffer[1];
+    if (dataLen + 4 < buffer.size())
+        buffer.resize(dataLen + 4);
+    return buffer;
+}
+
+static void print_full_toc(const std::vector<BYTE>& buffer)
+{
+    if (buffer.size() < sizeof(fullTocHeader)) {
+        std::cout << "TOC buffer too small\n";
+        return;
+    }
+    const fullTocHeader* header = reinterpret_cast<const fullTocHeader*>(buffer.data());
+    int numDesc = (header->DataLength) / sizeof(fullTocDesc);
+    const fullTocDesc* desc = reinterpret_cast<const fullTocDesc*>(buffer.data() + sizeof(fullTocHeader));
+
+    std::cout << "Full TOC:\n";
+    std::cout << "  First session: " << (int)header->FirstSession << "\n";
+    std::cout << "  Last session:  " << (int)header->LastSession << "\n";
+    std::cout << "  Descriptors:   " << numDesc << "\n\n";
+
+    for (int i = 0; i < numDesc; ++i) {
+        const fullTocDesc& d = desc[i];
+        int control = d.Control_ADR & 0x0F;
+        int adr = (d.Control_ADR >> 4) & 0x0F;
+
+        std::cout << "Session: " << std::setw(2) << (int)d.SessionNumber
+                  << "  TNO: 0x" << std::hex << std::setw(2) << std::setfill('0') << (int)d.TNO
+                  << "  POINT: 0x" << std::setw(2) << (int)d.POINT
+                  << "  Control: " << std::dec << control
+                  << "  ADR: " << adr
+                  << "  PMin: " << std::setw(2) << (int)d.PMin
+                  << "  PSec: " << std::setw(2) << (int)d.PSec
+                  << "  PFrame: " << std::setw(2) << (int)d.PFrame
+                  << "\n";
+    }
+}
+
+byteArray alt::storage_full_tok(const string &device, bool print)
+{
+    byteArray rv;
+
+    HANDLE hDevice = CreateFileA(
+        device(),
+        GENERIC_READ,
+        FILE_SHARE_READ,
+        nullptr,
+        OPEN_EXISTING,
+        0,
+        nullptr
+    );
+    if (hDevice == INVALID_HANDLE_VALUE) {
+        std::cerr << "Failed to open device\n";
+        return rv;
+    }
+
+    auto toc = read_full_toc(hDevice);
+    if (!toc.empty()) {
+        rv.append(toc.data(),toc.size());
+    } else {
+        std::cerr << "Failed to read Full TOC\n";
+    }
+
+    CloseHandle(hDevice);
+
+    if(print)
+    {
+        print_full_toc(toc);
+    }
+
+    return rv;
+}
+
+map<string,DriveType> alt::storages(bool print)
+{
+    map<string,DriveType> rv;
+
+    // Оптические приводы
+    array<string> list = list_devices(&GUID_DEVINTERFACE_CDROM);
+    for(int i=0;i<list.size();i++)
+    {
+        rv[list[i]] = DriveType::Optical;
+    }
+
+    // Флоппи-диски
+    list = list_devices(&GUID_DEVINTERFACE_FLOPPY);
+    for(int i=0;i<list.size();i++)
+    {
+        rv[list[i]] = DriveType::Floppy;
+    }
+
+    // Ленточные накопители
+    list = list_devices(&GUID_DEVINTERFACE_TAPE);
+    for(int i=0;i<list.size();i++)
+    {
+        rv[list[i]] = DriveType::Tape;
+    }
+
+    // Диски (HDD/SSD/USB/SD)
+    list = list_devices(&GUID_DEVINTERFACE_DISK);
+    for(int i=0;i<list.size();i++)
+    {
+        rv[list[i]] = GetDriveTypeFromDevice(list[i]);
+    }
+
+    if(print)
+    {
+        for(int i=0;i<rv.size();i++)
+        {
+            std::cout << rv.key(i)() << " -> [" << GetDeviceFriendlyName(rv.key(i))() << "] " << DriveTypeToString(rv.value(i))() << std::endl;
+        }
+    }
+
+    return rv;
+}
+
+string alt::storageOfPartition(const string &part)
+{
+    if(!part.size())
+        return string();
+    return GetDeviceInterfacePathByDriveLetter(part[0]);
+}
+
+map<string,DriveType> alt::partitions(bool print)
+{
+    map<string,DriveType> rv;
+
+    DWORD drives = GetLogicalDrives();
+    char root[] = "A:\\";
+    for (int i = 0; i < 26; ++i) {
+        if (drives & (1 << i)) {
+            root[0] = 'A' + i;
+            UINT type = GetDriveTypeA(root);
+            switch (type) {
+                case DRIVE_REMOVABLE:
+                    rv[root] = DriveType::Removable;
+                    break;
+                case DRIVE_FIXED:
+                    rv[root] = DriveType::Fixed;
+                    break;
+                case DRIVE_CDROM:
+                    rv[root] = DriveType::Optical;
+                    break;
+                case DRIVE_RAMDISK:
+                    rv[root] = DriveType::RAM;;
+                    break;
+                default:
+                    rv[root] = DriveType::Unknown;;
+            }
+        }
+    }
+
+    if(print)
+    {
+        for(int i=0;i<rv.size();i++)
+        {
+            std::cout << rv.key(i)() << " -> [" << GetDeviceInterfacePathByDriveLetter(rv.key(i)()[0])() << "] " << DriveTypeToString(rv.value(i))() << std::endl;
+        }
+    }
+
+    return rv;
+}
+
+#else
+#include <string>
+#include <fstream>
+#include <sys/stat.h>
+
+DriveType GetDriveTypeFromSysfs(const std::string& devname) {
+    std::string sysbase = "/sys/class/block/" + devname;
+
+    // 1. SCSI type
+    std::ifstream ftype(sysbase + "/device/type");
+    if (ftype) {
+        int t = -1;
+        ftype >> t;
+        switch (t) {
+            case 0: // Direct-access (HDD/SSD/USB/SD)
+                break; // определим ниже
+            case 1: return DriveType::Tape;
+            case 4: return DriveType::Floppy;
+            case 5: return DriveType::Optical;
+            default: return DriveType::Unknown;
+        }
+    }
+
+    // 2. RAM-диск (нет device-ссылки)
+    struct stat st;
+    if (stat((sysbase + "/device").c_str(), &st) != 0)
+        return DriveType::RAM;
+
+    // 3. Removable
+    std::ifstream frem(sysbase + "/removable");
+    if (frem) {
+        int r = 0;
+        frem >> r;
+        if (r == 1)
+            return DriveType::Removable;
+    }
+
+    // 4. Fixed
+    return DriveType::Fixed;
+}
+#endif
+
 void pathParcer::setPath(const string &path)
 {
     char sep=_defSep;

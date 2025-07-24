@@ -32,6 +32,45 @@ SOFTWARE.
 
 namespace alt {
 
+    enum class DriveType
+    {
+        Optical,
+        Floppy,
+        Tape,
+        RAM,
+        Removable,
+        Fixed,
+        Unknown
+    };
+
+    #pragma pack(push, 1)
+    struct fullTocDesc {
+        uint8_t  SessionNumber;  // Номер сессии, к которой относится этот дескриптор
+        uint8_t  Control_ADR;    // 4 бита Control, 4 бита ADR
+        uint8_t  TNO;            // Track Number (или спец. значения: 0xA0, 0xA1, 0xA2, 0xB0, 0xB1, 0xB2)
+        uint8_t  POINT;          // Тип точки (A0, A1, A2, 01..63, B0..B2)
+        uint8_t  Min;            // MSF или часть LBA (зависит от POINT)
+        uint8_t  Sec;
+        uint8_t  Frame;
+        uint8_t  Zero;           // Зарезервировано, всегда 0
+        uint8_t  PMin;           // Значение зависит от POINT (обычно MSF или LBA)
+        uint8_t  PSec;
+        uint8_t  PFrame;
+    };
+
+    struct fullTocHeader {
+        uint16_t DataLength;
+        uint8_t  FirstSession;
+        uint8_t  LastSession;
+        // Далее идут дескрипторы
+    };
+    #pragma pack(pop)
+
+    byteArray storage_full_tok(const string &device, bool print = false);
+    map<string,DriveType> storages(bool print = false);
+    string storageOfPartition(const string &part);
+    map<string,DriveType> partitions(bool print = false);
+
     class pathParcer
     {
     public:

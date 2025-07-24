@@ -1565,6 +1565,16 @@ namespace alt {
             return findList(&n->values,val) >= 0;
         }
 
+        bool contains(const map &val)
+        {
+            for(int i=0;i<val.size();i++)
+            {
+                if(!contains(val.key(i)))
+                    return false;
+            }
+            return true;
+        }
+
         intz indexOf(const K &key) const
         {
             Node *n = find(data->top,key);

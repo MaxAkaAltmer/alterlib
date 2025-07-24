@@ -38,3 +38,6 @@
 [submodule "external/libchdr"]
 	path = external/libchdr
 	url = https://github.com/MaxAkaAltmer/libchdr.git
+[submodule "external/stb"]
+	path = external/stb
+	url = https://github.com/MaxAkaAltmer/stb.git

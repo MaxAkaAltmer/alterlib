@@ -27,8 +27,28 @@ SOFTWARE.
 #include "aimage.h"
 #include "compress/arch_diction.h"
 #include "compress/arch_prefix.h"
+#include "afile.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "external/stb/stb_image_write.h"
 
 using namespace alt;
+
+bool image::save(const string &fname)
+{
+    pathParcer path(fname);
+    string ext = path.getExtension().toLower();
+
+    if(ext == "png")
+        return stbi_write_png(fname(), data->w, data->h, 4, data->buff, data->w * 4);
+    if(ext == "bmp")
+        return stbi_write_bmp(fname(), data->w, data->h, 4, data->buff);
+    if(ext == "tga")
+        return stbi_write_tga(fname(), data->w, data->h, 4, data->buff);
+    if(ext == "jpg" || ext == "jpeg")
+        return stbi_write_jpg(fname(), data->w, data->h, 4, data->buff, 100);
+
+    return false;
+}
 
 image::image()
 {

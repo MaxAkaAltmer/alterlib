@@ -63,6 +63,8 @@ namespace alt {
             *this = image(img.data->w,img.data->h,img.data->buff,img.data->d);
         }
 
+        bool save(const string &fname);
+
         byteArray toData(int compression=-1, bool just_alpha=false);
         static image fromData(byteArray &val);
 

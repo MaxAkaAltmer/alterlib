@@ -88,6 +88,12 @@ namespace alt {
             return *this;
         }
 
+        byteArray& fill(uint8 val)
+        {
+            data.fill(val);
+            return *this;
+        }
+
         byteArray& reserve(int size)
         {
             data.reserve(size);

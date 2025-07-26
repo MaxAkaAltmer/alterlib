@@ -58,6 +58,54 @@ SOFTWARE.
 
 using namespace alt;
 
+static string DriveTypeToString(DriveType t)
+{
+    switch (t) {
+        case DriveType::Optical: return "Optical";
+        case DriveType::Floppy: return "Floppy";
+        case DriveType::Tape: return "Tape";
+        case DriveType::RAM: return "RAM";
+        case DriveType::Removable: return "Removable";
+        case DriveType::Fixed: return "Fixed";
+        default: return "Unknown";
+    }
+}
+
+#include <iostream>
+#include <iomanip>
+
+static void print_full_toc(const byteArray& buffer)
+{
+    if (buffer.size() < sizeof(fullTocHeader)) {
+        std::cout << "TOC buffer too small\n";
+        return;
+    }
+    const fullTocHeader* header = reinterpret_cast<const fullTocHeader*>(buffer());
+    int numDesc = (header->DataLength) / sizeof(fullTocDesc);
+    const fullTocDesc* desc = reinterpret_cast<const fullTocDesc*>(buffer() + sizeof(fullTocHeader));
+
+    std::cout << "Full TOC:\n";
+    std::cout << "  First session: " << (int)header->FirstSession << "\n";
+    std::cout << "  Last session:  " << (int)header->LastSession << "\n";
+    std::cout << "  Descriptors:   " << numDesc << "\n\n";
+
+    for (int i = 0; i < numDesc; ++i) {
+        const fullTocDesc& d = desc[i];
+        int control = d.Control_ADR & 0x0F;
+        int adr = (d.Control_ADR >> 4) & 0x0F;
+
+        std::cout << "Session: " << std::setw(2) << (int)d.SessionNumber
+                  << "  TNO: 0x" << std::hex << std::setw(2) << std::setfill('0') << (int)d.TNO
+                  << "  POINT: 0x" << std::setw(2) << (int)d.POINT
+                  << "  Control: " << std::dec << control
+                  << "  ADR: " << adr
+                  << "  PMin: " << std::setw(2) << (int)d.PMin
+                  << "  PSec: " << std::setw(2) << (int)d.PSec
+                  << "  PFrame: " << std::setw(2) << (int)d.PFrame
+                  << "\n";
+    }
+}
+
 #if !defined(linux) && !defined(__APPLE__)
 #include <winioctl.h>
 #include <ntddcdrm.h> // или <ntddcdvd.h>
@@ -74,19 +122,6 @@ using namespace alt;
 #include <map>
 
 #pragma comment(lib, "SetupAPI.lib")
-
-static string DriveTypeToString(DriveType t)
-{
-    switch (t) {
-        case DriveType::Optical: return "Optical";
-        case DriveType::Floppy: return "Floppy";
-        case DriveType::Tape: return "Tape";
-        case DriveType::RAM: return "RAM";
-        case DriveType::Removable: return "Removable";
-        case DriveType::Fixed: return "Fixed";
-        default: return "Unknown";
-    }
-}
 
 static string GetDeviceFriendlyName(const string& deviceInterfacePath) {
     // Получаем список устройств
@@ -361,38 +396,6 @@ static std::vector<BYTE> read_full_toc(HANDLE hDevice)
     return buffer;
 }
 
-static void print_full_toc(const std::vector<BYTE>& buffer)
-{
-    if (buffer.size() < sizeof(fullTocHeader)) {
-        std::cout << "TOC buffer too small\n";
-        return;
-    }
-    const fullTocHeader* header = reinterpret_cast<const fullTocHeader*>(buffer.data());
-    int numDesc = (header->DataLength) / sizeof(fullTocDesc);
-    const fullTocDesc* desc = reinterpret_cast<const fullTocDesc*>(buffer.data() + sizeof(fullTocHeader));
-
-    std::cout << "Full TOC:\n";
-    std::cout << "  First session: " << (int)header->FirstSession << "\n";
-    std::cout << "  Last session:  " << (int)header->LastSession << "\n";
-    std::cout << "  Descriptors:   " << numDesc << "\n\n";
-
-    for (int i = 0; i < numDesc; ++i) {
-        const fullTocDesc& d = desc[i];
-        int control = d.Control_ADR & 0x0F;
-        int adr = (d.Control_ADR >> 4) & 0x0F;
-
-        std::cout << "Session: " << std::setw(2) << (int)d.SessionNumber
-                  << "  TNO: 0x" << std::hex << std::setw(2) << std::setfill('0') << (int)d.TNO
-                  << "  POINT: 0x" << std::setw(2) << (int)d.POINT
-                  << "  Control: " << std::dec << control
-                  << "  ADR: " << adr
-                  << "  PMin: " << std::setw(2) << (int)d.PMin
-                  << "  PSec: " << std::setw(2) << (int)d.PSec
-                  << "  PFrame: " << std::setw(2) << (int)d.PFrame
-                  << "\n";
-    }
-}
-
 byteArray alt::storage_full_tok(const string &device, bool print)
 {
     byteArray rv;
@@ -422,7 +425,7 @@ byteArray alt::storage_full_tok(const string &device, bool print)
 
     if(print)
     {
-        print_full_toc(toc);
+        print_full_toc(rv);
     }
 
     return rv;
@@ -522,6 +525,10 @@ map<string,DriveType> alt::partitions(bool print)
 #include <string>
 #include <fstream>
 #include <sys/stat.h>
+#include <filesystem>
+#include <sys/ioctl.h>
+#include <scsi/sg.h>
+#include <linux/cdrom.h>
 
 DriveType GetDriveTypeFromSysfs(const std::string& devname) {
     std::string sysbase = "/sys/class/block/" + devname;
@@ -558,6 +565,227 @@ DriveType GetDriveTypeFromSysfs(const std::string& devname) {
     // 4. Fixed
     return DriveType::Fixed;
 }
+
+map<string,DriveType> alt::storages(bool print)
+{
+    map<string, DriveType> rv;
+
+    for (const auto& entry : std::filesystem::directory_iterator("/sys/class/block"))
+    {
+        std::string name = entry.path().filename();
+
+        if (!std::filesystem::exists(entry.path() / "partition"))
+        {
+            DriveType type = GetDriveTypeFromSysfs(name);
+            rv[name.c_str()] = type;
+        }
+    }
+
+    if(print)
+    {
+        for(int i=0;i<rv.size();i++)
+        {
+            std::cout << rv.key(i)() << " -> " << DriveTypeToString(rv.value(i))() << std::endl;
+        }
+    }
+
+    return rv;
+}
+
+string alt::storageOfPartition(const string &part)
+{
+    try
+    {
+        std::string partname = "/sys/class/block/";
+        partname += part();
+        std::filesystem::path path = std::filesystem::canonical(partname);
+        std::string full = path.string();
+        auto pos = full.find_last_of('/');
+        if (pos != std::string::npos)
+        {
+            std::string device_path = full.substr(0, pos);
+            return std::filesystem::path(device_path).filename().c_str();
+        }
+    }
+    catch (...)
+    {
+        return "";
+    }
+    return "";
+}
+
+map<string,DriveType> alt::partitions(bool print)
+{
+    map<string, DriveType> rv;
+    auto devices = storages();  // Предварительно получаем устройства и их типы
+
+    for (const auto& entry : std::filesystem::directory_iterator("/sys/class/block"))
+    {
+        std::string partname = entry.path().filename();
+
+        if (std::filesystem::exists(entry.path() / "partition"))
+        {
+            string parent = storageOfPartition(partname.c_str());
+            if (!parent.isEmpty() && devices.contains(parent))
+            {
+                rv[partname.c_str()] = devices[parent];
+            }
+            else
+            {
+                rv[partname.c_str()] = DriveType::Unknown;
+            }
+        }
+    }
+
+    if(print)
+    {
+        for(int i=0;i<rv.size();i++)
+        {
+            std::cout << rv.key(i)() << " -> [" << storageOfPartition(rv.key(i)())() << "] " << DriveTypeToString(rv.value(i))() << std::endl;
+        }
+    }
+
+    return rv;
+}
+
+enum class DeviceAccessCheckResult {
+    OK,               // Всё в порядке, устройство есть, доступ разрешён
+    NotFound,         // Устройство не существует
+    NotCDROM,         // Устройство не является CD/DVD
+    NoPermissions,    // Недостаточно прав (без root и без групп cdrom/sg)
+    IoctlFailed       // Сломан SG_IO или не распознано устройство
+};
+
+DeviceAccessCheckResult check_cdrom_device_access(const std::string& device)
+{
+    struct stat st;
+    if (stat(device.c_str(), &st) != 0)
+    {
+        // Файл не существует
+        return DeviceAccessCheckResult::NotFound;
+    }
+
+    // Проверим, что это блочное/символьное устройство
+    if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode))
+    {
+        return DeviceAccessCheckResult::NotCDROM;
+    }
+
+    // Пробуем открыть
+    int fd = open(device.c_str(), O_RDONLY | O_NONBLOCK);
+    if (fd < 0)
+    {
+        if (errno == EACCES || errno == EPERM)
+        {
+            return DeviceAccessCheckResult::NoPermissions;
+        }
+        else
+        {
+            return DeviceAccessCheckResult::NotFound;
+        }
+    }
+
+    // Проверка: действительно ли это CD/DVD (через ioctl)
+    struct cdrom_tochdr hdr;
+    if (ioctl(fd, CDROMREADTOCHDR, &hdr) < 0)
+    {
+        // Это не CD/DVD устройство, или нет диска
+        close(fd);
+        return DeviceAccessCheckResult::NotCDROM;
+    }
+
+    // Дополнительно: проверим SG_IO на этом устройстве
+    uint8_t cdb[6] = { 0x00, 0, 0, 0, 0, 0 }; // TEST UNIT READY
+    uint8_t sense[32] = {};
+    sg_io_hdr_t io_hdr = {};
+    io_hdr.interface_id = 'S';
+    io_hdr.cmdp = cdb;
+    io_hdr.cmd_len = sizeof(cdb);
+    io_hdr.dxfer_direction = SG_DXFER_NONE;
+    io_hdr.sbp = sense;
+    io_hdr.mx_sb_len = sizeof(sense);
+    io_hdr.timeout = 1000;
+
+    if (ioctl(fd, SG_IO, &io_hdr) < 0)
+    {
+        close(fd);
+        return DeviceAccessCheckResult::IoctlFailed;
+    }
+
+    close(fd);
+    return DeviceAccessCheckResult::OK;
+}
+
+bool send_scsi_read_toc(int fd, byteArray& buffer)
+{
+    size_t allocLen = 2048;
+    buffer.resize(allocLen);
+    buffer.fill(0);
+
+    uint8_t cdb[10] = {};
+    cdb[0] = 0x43;   // READ TOC
+    cdb[1] = 0x02;   // MSF = 0, Format = 0x02 (Full TOC)
+    cdb[7] = (allocLen >> 8) & 0xFF;
+    cdb[8] = allocLen & 0xFF;
+
+    sg_io_hdr_t io_hdr = {};
+    io_hdr.interface_id = 'S';
+    io_hdr.cmdp = cdb;
+    io_hdr.cmd_len = sizeof(cdb);
+    io_hdr.dxferp = buffer();
+    io_hdr.dxfer_len = allocLen;
+    io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
+    io_hdr.timeout = 5000;
+
+    if (ioctl(fd, SG_IO, &io_hdr) < 0)
+    {
+        perror("SG_IO ioctl failed");
+        return false;
+    }
+
+    if ((io_hdr.info & SG_INFO_OK_MASK) != SG_INFO_OK)
+    {
+        std::cerr << "SCSI READ TOC command failed\n";
+        return false;
+    }
+
+    // Обрезаем по фактической длине (префикс + DataLength)
+    uint16_t dataLen = (buffer[0] << 8) | buffer[1];
+    size_t totalLen = dataLen + 2;
+    if (totalLen > allocLen)
+        totalLen = allocLen;
+
+    buffer.resize(totalLen);
+    return true;
+}
+
+byteArray storage_full_tok(const string &device, bool print)
+{
+    int fd = open(device(), O_RDONLY | O_NONBLOCK);
+    if (fd < 0)
+    {
+        perror("Failed to open CD/DVD device");
+        return byteArray();
+    }
+
+    byteArray toc;
+    if (!send_scsi_read_toc(fd, toc))
+    {
+        std::cerr << "Failed to read Full TOC\n";
+        close(fd);
+        return byteArray();
+    }
+
+    if (print)
+    {
+        print_full_toc(toc);
+    }
+
+    close(fd);
+    return toc;
+}
+
+
 #endif
 
 void pathParcer::setPath(const string &path)

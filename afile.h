@@ -45,23 +45,23 @@ namespace alt {
 
     #pragma pack(push, 1)
     struct fullTocDesc {
-        uint8_t  SessionNumber;  // Номер сессии, к которой относится этот дескриптор
-        uint8_t  Control_ADR;    // 4 бита Control, 4 бита ADR
-        uint8_t  TNO;            // Track Number (или спец. значения: 0xA0, 0xA1, 0xA2, 0xB0, 0xB1, 0xB2)
-        uint8_t  POINT;          // Тип точки (A0, A1, A2, 01..63, B0..B2)
-        uint8_t  Min;            // MSF или часть LBA (зависит от POINT)
-        uint8_t  Sec;
-        uint8_t  Frame;
-        uint8_t  Zero;           // Зарезервировано, всегда 0
-        uint8_t  PMin;           // Значение зависит от POINT (обычно MSF или LBA)
-        uint8_t  PSec;
-        uint8_t  PFrame;
+        uint8  SessionNumber;  // Номер сессии, к которой относится этот дескриптор
+        uint8  Control_ADR;    // 4 бита Control, 4 бита ADR
+        uint8  TNO;            // Track Number (или спец. значения: 0xA0, 0xA1, 0xA2, 0xB0, 0xB1, 0xB2)
+        uint8  POINT;          // Тип точки (A0, A1, A2, 01..63, B0..B2)
+        uint8  Min;            // MSF или часть LBA (зависит от POINT)
+        uint8  Sec;
+        uint8  Frame;
+        uint8  Zero;           // Зарезервировано, всегда 0
+        uint8  PMin;           // Значение зависит от POINT (обычно MSF или LBA)
+        uint8  PSec;
+        uint8  PFrame;
     };
 
     struct fullTocHeader {
-        uint16_t DataLength;
-        uint8_t  FirstSession;
-        uint8_t  LastSession;
+        uint16 DataLength;
+        uint8  FirstSession;
+        uint8  LastSession;
         // Далее идут дескрипторы
     };
     #pragma pack(pop)

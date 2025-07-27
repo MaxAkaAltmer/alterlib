@@ -48,7 +48,7 @@ static void* openSharedMemory(const string& name, uint8*& buffer, uintz size)
     return hand;
 }
 
-static void* closeSharedMemory(sharedInternal *hand, void *buffer, uintz size)
+static void closeSharedMemory(sharedInternal *hand, void *buffer, uintz size)
 {
     // Очистка ресурсов
     munmap(buffer, size);
@@ -101,7 +101,7 @@ static void* openSharedMemory(const string& name, uint8*& buffer, uintz size)
     return hand;
 }
 
-static void* closeSharedMemory(sharedInternal *hand, void *buffer, uintz size)
+static void closeSharedMemory(sharedInternal *hand, void *buffer, uintz size)
 {
     UnmapViewOfFile(buffer);
 

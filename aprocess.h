@@ -6,34 +6,35 @@
 
 namespace alt {
 
+    /** @brief Возвращает идентификатор текущего процесса. */
     long long processId();
 
+    /**
+     * @brief Класс для работы с разделяемой памятью между процессами.
+     */
     class processSharedMemory
     {
     public:
+        /**
+         * @param name Имя разделяемой памяти.
+         * @param size Размер в байтах.
+         */
         processSharedMemory(const string& name, uintz size);
         processSharedMemory(const processSharedMemory&) = delete;
         ~processSharedMemory();
-
         processSharedMemory& operator = (const processSharedMemory&) = delete;
 
-        const uint8& operator[](uintz ind) const
-        {
-            return buffer[ind];
-        }
-
-        const uint8* operator()() const
-        {
-            return buffer;
-        }
-
+        /** @brief Доступ к байту по индексу. */
+        uint8& operator[](uintz ind) { return buffer[ind]; }
+        /** @brief Указатель на буфер. */
+        uint8* operator()() { return buffer; }
+        /** @brief Размер буфера. */
         uintz size() const { return buffer_size; }
 
     private:
-
-        uint8* buffer = nullptr;
-        uintz buffer_size = 0;
-        void *internal = nullptr;
+        uint8* buffer = nullptr;      ///< Буфер разделяемой памяти.
+        uintz buffer_size = 0;        ///< Размер буфера.
+        void *internal = nullptr;     ///< Внутренняя реализация.
     };
 
 }

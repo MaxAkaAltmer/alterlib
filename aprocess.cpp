@@ -75,7 +75,7 @@ static void* openSharedMemory(const string& name, uint8*& buffer, uintz size)
         INVALID_HANDLE_VALUE,    // Используем память, а не файл
         NULL,                    // Защита по умолчанию
         PAGE_READWRITE,          // Чтение/запись
-        0,                       // Размер (старшая часть)
+        size>>32,                       // Размер (старшая часть)
         size,// Размер (младшая часть)
         name()          // Имя объекта
     );
@@ -126,5 +126,6 @@ processSharedMemory::~processSharedMemory()
     {
         sharedInternal *hand = (sharedInternal*)internal;
         closeSharedMemory(hand,buffer, buffer_size);
+        delete hand;
     }
 }

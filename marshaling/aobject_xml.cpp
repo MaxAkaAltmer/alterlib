@@ -27,7 +27,7 @@ SOFTWARE.
 
 #include "aobject_xml.h"
 #include "../afile.h"
-#include "../external/tinyxml2/tinyxml2.h"
+#include "../external/tinyxml2/tinyxml2.cpp"
 
 using namespace alt;
 

@@ -20,9 +20,6 @@
 [submodule "external/tinyxml2"]
 	path = external/tinyxml2
 	url = https://github.com/MaxAkaAltmer/tinyxml2.git
-[submodule "external/cryptopp"]
-	path = external/cryptopp
-	url = https://github.com/MaxAkaAltmer/cryptopp.git
 [submodule "external/libnpy"]
 	path = external/libnpy
 	url = https://github.com/MaxAkaAltmer/libnpy.git

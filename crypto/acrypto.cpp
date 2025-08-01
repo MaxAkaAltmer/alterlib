@@ -28,9 +28,8 @@ SOFTWARE.
 #include "crc32.h"
 #include "../amath_int.h"
 
-#include "../external/cryptopp/cryptlib.inl"
-
-#include "../external/cryptopp/md5.h"
+#include <cryptopp/md5.h>
+#include <cryptopp/sha.h>
 
 using namespace alt;
 

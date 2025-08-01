@@ -32,9 +32,9 @@
 [submodule "external/miniaudio"]
 	path = external/miniaudio
 	url = https://github.com/MaxAkaAltmer/miniaudio.git
-[submodule "external/libchdr"]
-	path = external/libchdr
-	url = https://github.com/MaxAkaAltmer/libchdr.git
 [submodule "external/stb"]
 	path = external/stb
 	url = https://github.com/MaxAkaAltmer/stb.git
+[submodule "external/cryptopp"]
+	path = external/cryptopp
+	url = https://github.com/MaxAkaAltmer/cryptopp.git

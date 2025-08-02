@@ -71,6 +71,11 @@ namespace alt
         bool ready();
 
         /**
+         * @brief Sets into pause state
+         */
+        void pause(bool pause);
+
+        /**
          * @brief Sets the playback volume.
          * @param val Volume value (0.0 - 1.0).
          */

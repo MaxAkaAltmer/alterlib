@@ -32,7 +32,358 @@ SOFTWARE.
 using namespace alt;
 using namespace audio;
 
-#if defined(ASOUND_ENABLE_WINMM)
+#if defined(ASOUND_ENABLE_MINIAUDIO)
+
+#define MINIAUDIO_IMPLEMENTATION
+#include <miniaudio/miniaudio.h>
+#include <vector>
+#include <algorithm> // для std::clamp
+
+#include <alterlib/at_ring.h>
+
+// Static variables
+static ma_device device;
+static ring<uint32> samples_buffer(BLOCK_SIZE * BLOCK_COUNT);
+static volatile bool pause_play_state = false;
+static bool SwapChannels = false;
+static float sndalVolume = 1.0f;
+
+// Callback для заполнения аудио-буфера
+void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
+{
+    (void)pDevice;
+    (void)pInput; // Не используется в режиме воспроизведения
+
+    ma_int16* output = static_cast<ma_int16*>(pOutput);
+
+    for (ma_uint32 i = 0; i < frameCount; ++i)
+    {
+        if (samples_buffer.Size() < frameCount) {
+            // Буфер пуст — пишем тишину
+            *output++ = 0;
+            *output++ = 0;
+            continue;
+        }
+
+        uint32 val = samples_buffer.Get();
+        if (SwapChannels) {
+            val = (val >> 16) | (val << 16); // Меняем каналы
+        }
+
+        // Извлечение левого и правого канала из uint32
+        ma_int16 left = static_cast<ma_int16>(val & 0xFFFF);
+        ma_int16 right = static_cast<ma_int16>((val >> 16) & 0xFFFF);
+
+        // Применение громкости
+        left = static_cast<ma_int16>(left * sndalVolume);
+        right = static_cast<ma_int16>(right * sndalVolume);
+
+        *output++ = left;
+        *output++ = right;
+    }
+}
+
+// Установка громкости
+void alt::audio::set_volume(float val)
+{
+    val = std::clamp(val, 0.0f, 1.0f); // Ограничение диапазона
+    sndalVolume = val;
+}
+
+// Переключение каналов
+void alt::audio::swap_channels(bool val)
+{
+    SwapChannels = val;
+}
+
+// Использование буфера в процентах
+int alt::audio::utilization()
+{
+    return (100*BLOCK_SIZE*BLOCK_COUNT)/samples_buffer.Size();
+}
+
+// Инициализация аудио-устройства
+bool alt::audio::init(int _freq)
+{
+    ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
+    deviceConfig.playback.format = ma_format_s16; // 16-битный PCM
+    deviceConfig.playback.channels = 2;           // Стерео
+    deviceConfig.sampleRate = _freq;
+    deviceConfig.dataCallback = data_callback;
+    deviceConfig.pUserData = NULL;
+
+    if (ma_device_init(NULL, &deviceConfig, &device) != MA_SUCCESS) {
+        return false;
+    }
+
+    if (ma_device_start(&device) != MA_SUCCESS) {
+        ma_device_uninit(&device);
+        return false;
+    }
+
+    return true;
+}
+
+// Проверка готовности к записи
+bool alt::audio::ready()
+{
+    return samples_buffer.Allow();
+}
+
+// Очистка буфера
+bool alt::audio::flush()
+{
+    return samples_buffer.Allow();
+}
+
+// Пауза воспроизведения
+void alt::audio::pause(bool pause)
+{
+    if (pause) {
+        ma_device_stop(&device);
+    } else {
+        ma_device_start(&device);
+    }
+    pause_play_state = pause;
+}
+
+// Освобождение ресурсов
+void alt::audio::destroy()
+{
+    ma_device_uninit(&device);
+}
+
+// Добавление данных в буфер
+bool alt::audio::push(uint32 val)
+{
+    return samples_buffer.Push(val);
+}
+
+#elif defined(ANDROID_NDK)
+
+#include <assert.h>
+
+#include <SLES/OpenSLES.h>
+#include <SLES/OpenSLES_Android.h>
+
+#include <alterlib/at_ring.h>
+
+// engine interfaces
+static SLObjectItf engineObject = NULL;
+static SLEngineItf engineEngine = NULL;
+static SLObjectItf outputMixObject = NULL;
+
+// buffer queue player interfaces
+static SLObjectItf bqPlayerObject = NULL;
+static SLPlayItf bqPlayerPlay = NULL;
+static SLAndroidSimpleBufferQueueItf bqPlayerBufferQueue = NULL;
+static SLMuteSoloItf bqPlayerMuteSolo = NULL;
+static SLVolumeItf bqPlayerVolume = NULL;
+#define SL_BUFFER_SIZE 1024
+#define SL_BUFFER_SIZE_IN_SAMPLES (SL_BUFFER_SIZE / 4)
+
+// Double buffering.
+static uint32 buffer[2][SL_BUFFER_SIZE_IN_SAMPLES] = {0};
+static int curBuffer = 0;
+
+//основной звуковой буфер
+static ring<uint32> samples_buffer(BLOCK_SIZE*BLOCK_COUNT);
+static volatile bool pause_play_state=false;
+
+static bool SwapChannels=false;
+static float sndalVolume = 1.0;
+
+void alt::audio::set_volume(float val)
+{
+    sndalVolume = val;
+    if (bqPlayerVolume != NULL)
+    {
+        if (val == 0.0f) {
+            (*bqPlayerVolume)->SetMute(bqPlayerVolume, SL_BOOLEAN_TRUE);
+        } else {
+            (*bqPlayerVolume)->SetMute(bqPlayerVolume, SL_BOOLEAN_FALSE);
+            // Получите реальный диапазон громкости (опционально)
+            SLmillibel_t minLevel = SL_MILLIBEL_MIN;
+            SLmillibel_t maxLevel = 0;
+            SLresult result = (*bqPlayerVolume)->GetVolumeLevelRange(bqPlayerVolume, &minLevel, &maxLevel);
+            if (result == SL_RESULT_SUCCESS && minLevel < 0) {
+                // Используйте реальный диапазон
+                SLmillibel_t level = (SLmillibel_t)(val * (maxLevel - minLevel) + minLevel);
+                (*bqPlayerVolume)->SetVolumeLevel(bqPlayerVolume, level);
+            } else {
+                // Резервный вариант
+                SLmillibel_t level = (SLmillibel_t)(val * (-SL_MILLIBEL_MIN) + SL_MILLIBEL_MIN);
+                (*bqPlayerVolume)->SetVolumeLevel(bqPlayerVolume, level);
+            }
+        }
+    }
+}
+
+void alt::audio::swap_channels(bool val)
+{
+    SwapChannels=!val;
+}
+
+int alt::audio::utilization()
+{
+    return (100*BLOCK_SIZE*BLOCK_COUNT)/samples_buffer.Size();
+}
+
+static void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context)
+{
+    assert(bq == bqPlayerBufferQueue);
+    assert(NULL == context);
+
+    uint32 *nextBuffer = buffer[curBuffer];
+    int nextSize = sizeof(buffer[0]);
+
+    SLresult result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, nextBuffer, nextSize);
+
+    assert(SL_RESULT_SUCCESS == result);
+
+    if(pause_play_state)
+    {
+        curBuffer ^= 1; // Switch buffer
+
+        // Render to the fresh buffer
+        for(int i=0;i<SL_BUFFER_SIZE_IN_SAMPLES;i++)
+            buffer[curBuffer][i]=0;
+
+        samples_buffer.Free();
+    }
+
+    if(samples_buffer.Size()<SL_BUFFER_SIZE_IN_SAMPLES)return;
+    curBuffer ^= 1; // Switch buffer
+
+    // Render to the fresh buffer
+    for(int i=0;i<SL_BUFFER_SIZE_IN_SAMPLES;i++)
+    {
+        uint32 val = samples_buffer.Get();
+        if(SwapChannels)
+            val = (val>>16)|(val<<16);
+        buffer[curBuffer][i]=val;
+    }
+}
+
+bool alt::audio::init(int _freq)
+{
+    pause_play_state=false;
+
+    memset(buffer[0],0,sizeof(buffer[0]));
+    memset(buffer[1],0,sizeof(buffer[1]));
+
+    SLresult result;
+    // create engine
+    result = slCreateEngine(&engineObject, 0, NULL, 0, NULL, NULL);
+    assert(SL_RESULT_SUCCESS == result);
+    result = (*engineObject)->Realize(engineObject, SL_BOOLEAN_FALSE);
+    assert(SL_RESULT_SUCCESS == result);
+    result = (*engineObject)->GetInterface(engineObject, SL_IID_ENGINE, &engineEngine);
+    assert(SL_RESULT_SUCCESS == result);
+    result = (*engineEngine)->CreateOutputMix(engineEngine, &outputMixObject, 0, 0, 0);
+    assert(SL_RESULT_SUCCESS == result);
+    result = (*outputMixObject)->Realize(outputMixObject, SL_BOOLEAN_FALSE);
+    assert(SL_RESULT_SUCCESS == result);
+
+    SLDataLocator_AndroidSimpleBufferQueue loc_bufq = {SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 2};
+    SLDataFormat_PCM format_pcm = {
+            SL_DATAFORMAT_PCM,
+            2,
+            _freq*1000,
+            SL_PCMSAMPLEFORMAT_FIXED_16,
+            SL_PCMSAMPLEFORMAT_FIXED_16,
+            SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT,
+            SL_BYTEORDER_LITTLEENDIAN
+    };
+
+    SLDataSource audioSrc = {&loc_bufq, &format_pcm};
+
+    // configure audio sink
+    SLDataLocator_OutputMix loc_outmix = {SL_DATALOCATOR_OUTPUTMIX, outputMixObject};
+    SLDataSink audioSnk = {&loc_outmix, NULL};
+
+    // create audio player
+    const SLInterfaceID ids[2] = {SL_IID_BUFFERQUEUE, SL_IID_VOLUME};
+    const SLboolean req[2] = {SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE};
+    result = (*engineEngine)->CreateAudioPlayer(engineEngine, &bqPlayerObject, &audioSrc, &audioSnk, 2, ids, req);
+    assert(SL_RESULT_SUCCESS == result);
+
+    result = (*bqPlayerObject)->Realize(bqPlayerObject, SL_BOOLEAN_FALSE);
+    assert(SL_RESULT_SUCCESS == result);
+    result = (*bqPlayerObject)->GetInterface(bqPlayerObject, SL_IID_PLAY, &bqPlayerPlay);
+    assert(SL_RESULT_SUCCESS == result);
+    result = (*bqPlayerObject)->GetInterface(bqPlayerObject, SL_IID_BUFFERQUEUE,
+                                             &bqPlayerBufferQueue);
+    assert(SL_RESULT_SUCCESS == result);
+    result = (*bqPlayerObject)->GetInterface(bqPlayerObject, SL_IID_VOLUME, &bqPlayerVolume);
+    if (result != SL_RESULT_SUCCESS) {
+        bqPlayerVolume = NULL; // Отключите интерфейс, если не поддерживается
+    }
+    assert(SL_RESULT_SUCCESS == result);
+    result = (*bqPlayerBufferQueue)->RegisterCallback(bqPlayerBufferQueue, bqPlayerCallback, NULL);
+    assert(SL_RESULT_SUCCESS == result);
+    result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_PLAYING);
+    assert(SL_RESULT_SUCCESS == result);
+
+    // Render and enqueue a first buffer.
+    curBuffer ^= 1;
+
+    result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, buffer[0], sizeof(buffer[0]));
+    if (SL_RESULT_SUCCESS != result)
+        return false;
+
+    return true;
+}
+
+bool alt::audio::flush()
+{
+    return samples_buffer.Allow();
+}
+
+bool alt::audio::ready()
+{
+    return samples_buffer.Allow();
+}
+
+void alt::audio::pause(bool pause)
+{
+    if(bqPlayerPlay)
+    {
+        pause_play_state=pause;
+    }
+}
+
+void alt::audio::destroy()
+{
+    if (bqPlayerObject != NULL)
+    {
+        (*bqPlayerObject)->Destroy(bqPlayerObject);
+        bqPlayerObject = NULL;
+        bqPlayerPlay = NULL;
+        bqPlayerBufferQueue = NULL;
+        bqPlayerMuteSolo = NULL;
+    }
+
+    if (outputMixObject != NULL)
+    {
+        (*outputMixObject)->Destroy(outputMixObject);
+        outputMixObject = NULL;
+    }
+
+    if (engineObject != NULL)
+    {
+        (*engineObject)->Destroy(engineObject);
+        engineObject = NULL;
+        engineEngine = NULL;
+    }
+}
+
+bool alt::audio::push(uint32 val)
+{
+    return samples_buffer.Push(val);
+}
+
+#elif defined(ASOUND_ENABLE_WINMM)
 
 #include <stdint.h>
 
@@ -51,6 +402,11 @@ static float sndalVolume = 1.0f;
 static bool swapChannels = false;
 
 // --- Сервисные функции ---
+
+void alt::audio::pause(bool pause)
+{
+    return;
+}
 
 int alt::audio::utilization()
 {
@@ -190,6 +546,11 @@ static uint32 sndalQueue[BLOCK_SIZE], sndalCount;
 
 static bool SwapChannels=false;
 static float sndalVolume = 1.0;
+
+void alt::audio::pause(bool pause)
+{
+    return;
+}
 
 void alt::audio::set_volume(float val)
 {

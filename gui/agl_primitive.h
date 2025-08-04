@@ -37,8 +37,9 @@ SOFTWARE.
     #include <QtOpenGL>
     #include <GL/glu.h>
 #else
+    #include <windows.h>
     #include <GL/glu.h>
-    #include <GL/glext.h>
+    #include "../external/glext/glext.h"
 #endif
 
 #include "../amath_int.h"

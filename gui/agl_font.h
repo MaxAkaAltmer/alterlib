@@ -119,15 +119,10 @@ public:
 
 protected:
 
-#ifdef QT_WIDGETS_LIB
     virtual alt::image createGlyph(charx sym);
     virtual real32 getSpacing();
     virtual bool spacingAbs();
-#else
-    virtual AImage createGlyph(charx sym) = 0;
-    virtual real32 getSpacing() {return 0.0;}
-    virtual bool spacingAbs() {return false;}
-#endif
+
     virtual void onStartBlock(){return;}
     virtual void onEndBlock(){return;}
 
@@ -143,6 +138,10 @@ protected:
     alt::hash<alt::string, alt::hash<int,aglFontBlock> > fonts;
     alt::cache<alt::pair<alt::string,int> > cache;
     int blocklimit;
+
+    #ifndef QT_WIDGETS_LIB
+    alt::hash<alt::string, void*> fonts_data;
+    #endif
 
     //списки вершин и текстурных координат
     alt::array<GLfloat> vertexes;

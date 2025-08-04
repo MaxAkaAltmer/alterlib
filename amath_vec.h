@@ -364,10 +364,10 @@ public:
     {
         rect rv;
         if(!test(rc))return rv;
-        rv.x=__max_val(x,rc.x);
-        rv.y=__max_val(y,rc.y);
-        rv.width=__min_val(x+width,rc.x+rc.width)-rv.x;
-        rv.height=__min_val(y+height,rc.y+rc.height)-rv.y;
+        rv.x=imath::max(x,rc.x);
+        rv.y=imath::max(y,rc.y);
+        rv.width=imath::min(x+width,rc.x+rc.width)-rv.x;
+        rv.height=imath::min(y+height,rc.y+rc.height)-rv.y;
         return rv;
     }
 

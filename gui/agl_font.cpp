@@ -25,6 +25,7 @@ SOFTWARE.
 *****************************************************************************/
 
 #include "agl_font.h"
+#include "../afile.h"
 #include <math.h>
 
 AGLFont::AGLFont(alt::string font, int block_limit)
@@ -94,7 +95,139 @@ bool AGLFont::spacingAbs()
     font.fromString(curr_font);
     return (font.letterSpacingType()==QFont::AbsoluteSpacing)?true:false;
 }
+#else
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "../external/stb/stb_truetype.h"
+#include "battery/embed.hpp"
+
+struct fontDatum
+{
+    const uint8 *static_font_data = nullptr;
+    uint8 *dynamic_font_data = nullptr;
+    uintz size;
+    stbtt_fontinfo font;
+};
+
+alt::image AGLFont::createGlyph(charx sym)
+{
+    fontDatum *datum = nullptr;
+    if(fonts_data.contains(curr_font))
+    {
+        datum = (fontDatum*)fonts_data[curr_font];
+    }
+    else
+    {
+        std::vector<std::string> list = b::embed_list();
+        for(int i=0;i<list.size();i++)
+        {
+            if(list[i] == curr_font())
+            {
+                datum = new fontDatum;
+                datum->static_font_data = b::embed(list[i]).data();
+                datum->size = b::embed(list[i]).size();
+                break;
+            }
+        }
+        if(!datum)
+        {
+            alt::file hand(curr_font);
+            if(hand.open())
+            {
+                datum = new fontDatum;
+                datum->size = hand.size();
+                datum->dynamic_font_data = new uint8[datum->size];
+                if(datum->size != hand.read(datum->dynamic_font_data,datum->size))
+                {
+                    delete [](datum->dynamic_font_data);
+                    delete datum;
+                    datum = nullptr;
+                }
+            }
+        }
+
+        if(datum)
+        {
+            const uint8 *font_buffer = datum->dynamic_font_data ? datum->dynamic_font_data : datum->static_font_data;
+            if (!stbtt_InitFont(&datum->font, font_buffer, stbtt_GetFontOffsetForIndex(font_buffer,0)))
+            {
+                if(datum->dynamic_font_data)
+                    delete []datum->dynamic_font_data;
+                delete datum;
+                datum = nullptr;
+            }
+        }
+    }
+    if(!datum)
+        return alt::image();
+
+    int font_pixel_height = 16; //todo: configurable
+
+    int width, height, xoff, yoff;
+    unsigned char* bitmap = stbtt_GetCodepointBitmap(
+        &datum->font, 0, stbtt_ScaleForPixelHeight(&datum->font, font_pixel_height),
+        sym, &width, &height, &xoff, &yoff
+    );
+
+    alt::image glyph(width,height);
+
+    for (int y = 0; y < height; ++y)
+    {
+        for (int x = 0; x < width; ++x) {
+            int alpha = bitmap[y * width + x];
+            glyph[(y * width + x)] = 0xffffff|(alpha<<24);
+        }
+    }
+
+    stbtt_FreeBitmap(bitmap, NULL);
+
+    return glyph;
+}
+
+real32 AGLFont::getSpacing()
+{
+    return 0.0;
+}
+
+bool AGLFont::spacingAbs()
+{
+    return true;
+}
+
 #endif
+
+void AGLFont::clear()
+{
+    alt::array< alt::hash<int,aglFontBlock> > fparts=fonts.values();
+    for(int i=0;i<fparts.size();i++)
+    {
+        alt::array<aglFontBlock> blocks=fparts[i].values();
+        for(int j=0;j<blocks.size();j++)
+        {
+            alt::array<AGLTexture*> texs=blocks[j].textures;
+            for(int k=0;k<texs.size();k++)
+            {
+                delete texs[k];
+            }
+        }
+    }
+    fonts.clear();
+    cache.Clear();
+
+    #ifndef QT_WIDGETS_LIB
+    for(int i=0;i<fonts_data.size();i++)
+    {
+        fontDatum *datum = (fontDatum*)fonts_data.value(i);
+        if(datum->dynamic_font_data)
+            delete []datum->dynamic_font_data;
+        delete datum;
+    }
+    #endif
+}
+
+AGLFont::~AGLFont()
+{
+    clear();
+}
 
 alt::vec2d<real32> AGLFont::printSize(const alt::string &val, int *lineCount)
 {
@@ -735,30 +868,6 @@ real32 AGLFont::print(const alt::string &val, const alt::vec2d<real32> &pnt, rea
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 
     return xoff;
-}
-
-void AGLFont::clear()
-{
-    alt::array< alt::hash<int,aglFontBlock> > fparts=fonts.values();
-    for(int i=0;i<fparts.size();i++)
-    {
-        alt::array<aglFontBlock> blocks=fparts[i].values();
-        for(int j=0;j<blocks.size();j++)
-        {
-            alt::array<AGLTexture*> texs=blocks[j].textures;
-            for(int k=0;k<texs.size();k++)
-            {
-                delete texs[k];
-            }
-        }
-    }
-    fonts.clear();
-    cache.Clear();
-}
-
-AGLFont::~AGLFont()
-{
-    clear();
 }
 
 void AGLFont::checkBlocksLifeCicle()

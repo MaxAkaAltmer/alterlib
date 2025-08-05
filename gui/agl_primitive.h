@@ -36,10 +36,13 @@ SOFTWARE.
 #elif QT_OPENGL_LIB
     #include <QtOpenGL>
     #include <GL/glu.h>
-#else
+#elif WIN32
     #include <windows.h>
     #include <GL/glu.h>
     #include "../external/glext/glext.h"
+#else
+    #include <GL/glu.h>
+    #include <GL/glext.h>
 #endif
 
 #include "../amath_int.h"

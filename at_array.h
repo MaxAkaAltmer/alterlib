@@ -208,14 +208,14 @@ namespace alt {
             }
             if(data->refcount<2 && data->alloc>=data->size+count)
             {
-                alt::utils::memcpy(&data->buff[data->size],(uint8*)buff,count);
+                alt::utils::memcpy(&data->buff[data->size],buff,count);
                 data->size+=count;
                 return *this;
             }
             Internal *tmp=newInternal(data->size+count);
             if(data->size)
                 alt::utils::memcpy(tmp->buff,data->buff,data->size);
-            alt::utils::memcpy(&tmp->buff[data->size],(uint8*)buff,count);
+            alt::utils::memcpy(&tmp->buff[data->size],buff,count);
             deleteInternal();
             data=tmp;
             return *this;

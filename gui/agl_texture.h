@@ -50,126 +50,67 @@ SOFTWARE.
 #include "../amath_int.h"
 #include "../amath_vec.h"
 #include "../acolor.h"
+#include "../abyte_array.h"
 
-/////////////////////////////////////////////////////////////////////////
-//ТЕКСТУРНЫЙ ОБЪЕКТ
-class AGLTexture
+#include "atexture.h"
+
+namespace alt {
+
+struct GLApiResInternal
+{
+    GLuint tex;
+    alt::byteArray buffer;
+};
+
+class GLTexture: public alt::texture
 {
 public:
-    AGLTexture(){hand=NULL;}
+    GLTexture(): alt::texture() {}
+    GLTexture(const GLTexture &val): alt::texture(val) {}
+    GLTexture(const void *buff, int w, int h, uint32 format, int filter = 0)
+        : alt::texture()
+    {
+        resize(w,h,format,filter);
+        update(0,0,buff, w, h, format);
+    }
+    GLTexture(int w, int h, uint32 format, int filter = 0)
+        : alt::texture()
+    {
+        resize(w,h,format,filter);
+    }
 #ifdef QT_WIDGETS_LIB
     AGLTexture(const QImage &img)
+        : alt::texture()
     {
-        createBitmap(img.bits(),img.width(),img.height(),img.depth()<<16);
+        resize(img.width(),img.height(),img.depth()<<16);
+        update(0,0,img.bits(),img.height(),img.depth()<<16);
     }
 #endif
-    AGLTexture(const void *buff, int w, int h, uint32 format, int filter = 0);
-    AGLTexture(int w, int h, uint32 format, int filter = 0);
-    AGLTexture(const AGLTexture &val);
-    ~AGLTexture();
 
-    void resize(int w, int h, uint32 format, int filter = 0);
-    void load(const void *buff, int w, int h, uint32 format, int filter = 0);
+    ~GLTexture() { GLTexture::free(); }
 
-    void free();
-    bool isValid(){return hand;}
+    void resize(int w, int h, uint32 format, int filter = 0) final;
+    void update(int x, int y, const void *buff, int w, int h, uint32 format) final;
+    void free() final;
+    void draw(vec3d<real32> *vertex, vec2d<real32> *coord, int count, bool strip, alt::colorRGBA col=alt::colorRGBA()) const final;
 
-    AGLTexture& operator=(const AGLTexture &val);
-
-    void drawParticle(real32 x, real32 y, real32 z, real32 zoom, alt::colorRGBA col=alt::colorRGBA()) const;
-    void drawRect(real32 x, real32 y, real32 w, real32 h) const;
-    void drawRectPart(alt::rect<real32> scr_part, alt::rect<real32> tex_part) const;
-    void drawRectPartInt(alt::rect<real32> scr_part, alt::rect<int32> tex_part) const;
-    void drawFrameOver(int w, int h) const; //вписывает экран (w,h) в текстуру
-    void drawBox(alt::rect<real32> box, real32 border, alt::colorRGBA col=alt::colorRGBA());
-
-    void MakeCurrent() const
+    uintz getID() const
     {
-        if(!hand) return;
-        glBindTexture(GL_TEXTURE_2D, hand->tex);
+        if(!hand || !hand->api_related) return -1;
+        return ((GLApiResInternal*)hand->api_related)->tex;
     }
 
-    void Update(int x, int y, const void *buff, int w, int h, uint32 format);
-
-    GLuint getID() const
+    bool isValid() const final
     {
-        if(!hand) return -1;
-        return hand->tex;
+        return hand && hand->api_related;
     }
 
-    real32 normalWidth() const
-    {
-        if(!hand) return 0.0;
-        return (real32)originWidth()/(real32)hand->alwidth;
-    }
-    real32 normalHeight() const
-    {
-        if(!hand) return 0.0;
-        return (real32)originHeight()/(real32)hand->alheight;
-    }
-    int alignedWidth() const
-    {
-        if(!hand) return 0;
-        return hand->alwidth;
-    }
-    int alignedHeight() const
-    {
-        if(!hand) return 0;
-        return hand->alheight;
-    }
-    int originWidth() const
-    {
-        if(!hand) return 0;
-        return hand->width;
-    }
-    int originHeight() const
-    {
-        if(!hand) return 0;
-        return hand->height;
-    }
-    real32 convX(int32 x) const
-    {
-        if(!hand) return 0.0;
-        return (real32)x/(real32)hand->alwidth;
-    }
-    real32 convY(int32 y) const
-    {
-        if(!hand) return 0.0;
-        return (real32)y/(real32)hand->alheight;
-    }
+    void* mapData() final;
+    void unmapData() final;
 
-    alt::rect<int> originRect()
-    {
-        if(!hand) return alt::rect<int>();
-        return alt::rect<int>(0,0,hand->width,hand->height);
-    }
-    alt::rect<real32> normalRect()
-    {
-        if(!hand) return alt::rect<real32>();
-        return alt::rect<int>(0,0,normalWidth(),normalHeight());
-    }
-
-    static int pixelSize(uint32 format);
-    static bool hasAlpha(uint32 format);
-
-private:
-
-    struct Internal
-    {
-        int refcount;
-
-        GLuint tex;
-        int width, height;
-        int alwidth, alheight;
-        uint32 pixelFormat;
-    };
-    Internal *hand;
-
-    void drawVertexes(GLfloat *vertexes, GLfloat *coords, int count, bool strip=true) const;
-
-    void createBitmap(const void *buff, int w, int h, uint32 format, int filter = 0);
-    void setBitmap(const void *buff, int w, int h, uint32 format);
 
 };
+
+} //namespace alt
 
 #endif // QF_GL_TEXTURE_H

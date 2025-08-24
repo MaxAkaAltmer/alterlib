@@ -50,7 +50,7 @@ struct aglFontGlyphInfo
 struct aglFontBlock
 {
     alt::array<aglFontGlyphInfo> glyphs;
-    alt::array<AGLTexture*> textures;
+    alt::array<alt::GLTexture*> textures;
     real32 height;
     real32 spacing;
     bool spacing_is_abs;

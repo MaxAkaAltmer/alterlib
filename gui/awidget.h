@@ -66,16 +66,16 @@ namespace ui
             textures.clear();
         }
 
-        AGLTexture* operator()(string id)
+        alt::GLTexture* operator()(string id)
         {
             textures_used_at_draw.insert(id);
             if(!textures.contains(id))
             {
                 image img=loadImage(id);
-                AGLTexture *tmp = new AGLTexture(img(),img.width(),img.height(),0x8888);
-                textures.insert(id,pair<AGLTexture*,int>(tmp,texcache.Push(id)));
+                alt::GLTexture *tmp = new alt::GLTexture(img(),img.width(),img.height(),0x8888);
+                textures.insert(id,pair<alt::GLTexture*,int>(tmp,texcache.Push(id)));
             }
-            pair<AGLTexture*,int> tex=textures[id];
+            pair<alt::GLTexture*,int> tex=textures[id];
             texcache.Update(tex.right());
             return tex.left();
         }
@@ -88,7 +88,7 @@ namespace ui
         set<string>  textures_used_at_draw;
         int textures_used_at_draw_maximum;
         cache<string> texcache;
-        hash<string,pair<AGLTexture*,int> > textures;
+        hash<string,pair<alt::GLTexture*,int> > textures;
     };
 
     class widget: public delegateBase

@@ -27,6 +27,8 @@ SOFTWARE.
 #ifndef ATYPES_H
 #define ATYPES_H
 
+#include <concepts>
+
 //////////////////////////////////////////////////////////////////
 //определение типов
 //////////////////////////////////////////////////////////////////
@@ -323,6 +325,20 @@ namespace alt {
         for(uint i=0;i<sizeof(T) && i<sizeof(void*);i++)
         {
             ((uint8*)buff)[i]=((uint8*)&val)[i];
+        }
+    }
+
+    template<class DST, class SRC>
+    __inline DST reintrpret(const SRC &val)
+    {
+        if constexpr (std::is_integral_v<std::remove_cvref_t<SRC>>
+                && std::is_integral_v<std::remove_cvref_t<DST>>)
+        {
+            return val;
+        }
+        else
+        {
+            return reinterpret_cast<DST>(val);
         }
     }
 

@@ -148,7 +148,7 @@ namespace alt {
             }
         }
 
-        T encodePermutation()
+        T encodePermutation() const
         {
             set<T> check;
             if(!data->size)
@@ -185,6 +185,8 @@ namespace alt {
 
         bool decodePermutation(T val)
         {
+            cloneInternal();
+
             T k = 1;
             for(T i=0;i<data->size; i++)
             {
@@ -267,6 +269,7 @@ namespace alt {
 
         void roundup(dimensions div)
         {
+            cloneInternal();
             for(T i=1;i<data->size && i<div.data->size;i++)
                 data->buff[i] = alt::roundup(data->buff[i],div.data->buff[i]);
         }

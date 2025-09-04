@@ -30,7 +30,6 @@ SOFTWARE.
 #include "atypes.h"
 #include "at_array.h"
 #include "adelegate.h"
-#include <atomic>
 
 namespace alt {
 
@@ -101,7 +100,7 @@ namespace alt {
 
     struct sharedArrayInternal
     {
-        std::atomic<int> refcount = 0;
+        std::atomic<uint> refcount = 0;
         alt::array<uint8> buffer;
     };
 

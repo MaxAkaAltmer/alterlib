@@ -263,7 +263,7 @@ protected:
 
     struct Internal
     {
-        int refcount;
+        uint refcount;
 
         int width, height;
         int alwidth, alheight;

@@ -239,12 +239,15 @@ void VKTexture::free()
     if(!hand) return;
     hand->refcount --;
 
-    if(!hand->refcount && hand->api_related)
-    {
-        VKApiResInternal *api = (VKApiResInternal*)hand->api_related;
-        ctx->submitResourceFree(api);
-    }
-    delete hand;
+	if(!hand->refcount)
+	{
+		if(hand->api_related)
+		{
+			VKApiResInternal *api = (VKApiResInternal*)hand->api_related;
+			ctx->submitResourceFree(api);
+		}
+		delete hand;
+	}
     hand = nullptr;
 }
 

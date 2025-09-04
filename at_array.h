@@ -73,7 +73,7 @@ namespace alt {
         {
             intz size;
             intz alloc;
-            intz refcount;
+            uintz refcount;
             T *buff;
         };
 

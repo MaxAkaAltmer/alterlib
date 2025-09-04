@@ -135,12 +135,16 @@ void GLTexture::free()
     if(!hand) return;
     hand->refcount --;
 
-    if(!hand->refcount && hand->api_related)
+    if(!hand->refcount)
     {
-        GLApiResInternal *api = (GLApiResInternal*)hand->api_related;
-        delete api;
+        if(hand->api_related)
+        {
+            GLApiResInternal *api = (GLApiResInternal*)hand->api_related;
+            delete api;
+        }
+        delete hand;
     }
-    delete hand;
+
     hand = nullptr;
 }
 

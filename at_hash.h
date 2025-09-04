@@ -81,7 +81,7 @@ namespace alt {
             array<T>     Values;
             array<int>	  *Hash;
             int tabp2p;
-            int refcount;
+            uint refcount;
         };
 
         Internal *data;

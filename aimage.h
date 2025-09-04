@@ -38,7 +38,7 @@ namespace alt {
 
         struct Internal
         {
-            int refcount;
+            uint refcount;
             int w,h,d;
             uint32 buff[1];
         };

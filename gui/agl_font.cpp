@@ -203,7 +203,7 @@ void AGLFont::clear()
         alt::array<aglFontBlock> blocks=fparts[i].values();
         for(int j=0;j<blocks.size();j++)
         {
-            alt::array<AGLTexture*> texs=blocks[j].textures;
+            alt::array<alt::GLTexture*> texs=blocks[j].textures;
             for(int k=0;k<texs.size();k++)
             {
                 delete texs[k];
@@ -693,7 +693,7 @@ void AGLFont::printInQuad(const alt::string &val,
                 glDrawArrays(GL_TRIANGLES, 0, coords.size()>>1);
             }
 
-            block->textures[tind]->MakeCurrent();
+            glBindTexture(GL_TEXTURE_2D, block->textures[tind]->getID());
 
             vertexes.clear();
             coords.clear();
@@ -824,7 +824,7 @@ real32 AGLFont::print(const alt::string &val, const alt::vec2d<real32> &pnt, rea
                 glTexCoordPointer(2, GL_FLOAT, 0, coords());
                 glDrawArrays(GL_TRIANGLES, 0, coords.size()>>1);
             }
-            block->textures[tind]->MakeCurrent();
+            glBindTexture(GL_TEXTURE_2D, block->textures[tind]->getID());
             vertexes.clear();
             coords.clear();
         }
@@ -877,7 +877,7 @@ void AGLFont::checkBlocksLifeCicle()
         alt::pair<alt::string,int> el=cache.ForRemove();
         cache.Delete(fonts[el.left()][el.right()].cacheIndex);
 
-        alt::array<AGLTexture*> texs=fonts[el.left()][el.right()].textures;
+        alt::array<alt::GLTexture*> texs=fonts[el.left()][el.right()].textures;
         for(int k=0;k<texs.size();k++)
         {
             delete texs[k];
@@ -928,7 +928,7 @@ void AGLFont::createBlock(int index)
             str_height=1;
 
             //генерим текстуру
-            block.textures.append(new AGLTexture(img(),img.width(),img.height(),0x8888));
+            block.textures.append(new alt::GLTexture(img(),img.width(),img.height(),0x8888));
 
             img.fill(0);
         }
@@ -950,7 +950,7 @@ void AGLFont::createBlock(int index)
         if(str_height>block.height)block.height=str_height;
     }
 
-    block.textures.append(new AGLTexture(img(),img.width(),img.height(),0x8888));
+    block.textures.append(new alt::GLTexture(img(),img.width(),img.height(),0x8888));
 
     //запишем блок
     if(str_height>block.height)block.height=str_height;

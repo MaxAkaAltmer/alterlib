@@ -28,6 +28,7 @@ SOFTWARE.
 #define ATYPES_H
 
 #include <concepts>
+#include <atomic>
 
 //////////////////////////////////////////////////////////////////
 //определение типов
@@ -435,7 +436,35 @@ namespace alt {
         R vr;
     };
 
-    template <class T>
+    struct threadSafeRefCounter {
+        using value_type = std::atomic<uint>;
+        static void inc(value_type& c) noexcept {
+            c.fetch_add(1, std::memory_order_relaxed);
+        }
+        static bool dec_is_last(value_type& c) noexcept {
+            return c.fetch_sub(1, std::memory_order_release) == 1;
+        }
+        static void after_last() noexcept {
+            std::atomic_thread_fence(std::memory_order_acquire);
+        }
+        static unsigned load(const value_type& c) noexcept {
+            return c.load(std::memory_order_relaxed);
+        }
+        static bool is_unique(const value_type& c) noexcept {
+            return load(c) == 1;
+        }
+    };
+
+    struct singleThreadRefCounter {
+        using value_type = uint;
+        static void inc(value_type& c) noexcept { ++c; }
+        static bool dec_is_last(value_type& c) noexcept { return --c == 0; }
+        static void after_last() noexcept {}
+        static unsigned load(const value_type& c) noexcept { return c; }
+        static bool is_unique(const value_type& c) noexcept { return c == 1; }
+    };
+
+    template <class T, class REF = threadSafeRefCounter>
     class shared
     {
     public:
@@ -446,14 +475,14 @@ namespace alt {
         {
             data = new Internal();
             data->object = val;
-            data->refcount ++;
+            REF::inc(data->refcount);
         }
         shared(const shared<T> &val)
         {
             if(val.data)
             {
                 data = val.data;
-                data->refcount++;
+                REF::inc(data->refcount);
             }
         }
         shared& operator = (const shared<T> &val)
@@ -464,10 +493,11 @@ namespace alt {
             if(val.data)
             {
                 data = val.data;
-                data->refcount++;
+                REF::inc(data->refcount);
             }
             return *this;
         }
+
         ~shared()
         {
             removeInternal();
@@ -495,27 +525,33 @@ namespace alt {
             return *(data->object);
         }
 
+        uint use_count() const noexcept {
+            return data ? REF::load(data->refcount) : 0u;
+        }
+        bool unique() const noexcept {
+            return data ? REF::is_unique(data->refcount) : false;
+        }
+
     private:
         struct Internal
         {
             T *object = nullptr;
-            uint refcount = 0;
+            typename REF::value_type refcount = 0;
         };
 
         Internal *data = nullptr;
 
         void removeInternal()
         {
-            if(data)
-            {
-                data->refcount--;
-                if(!data->refcount)
-                {
-                    delete data->object;
-                    delete data;
-                }
-            }
+            Internal* d = data;
             data = nullptr;
+            if (!d) return;
+            if (REF::dec_is_last(d->refcount))
+            {
+                REF::after_last();
+                delete d->object;
+                delete d;
+            }
         }
     };
 

@@ -18,6 +18,14 @@ public:
     virtual ~streamer();
 
     void stop();
+    void stop_async()
+    {
+        stop_flag=true;
+    }
+    bool stop_is_done()
+    {
+        return thread->isOff();
+    }
 
     alt::string fileName(){return filename;}
 
@@ -33,7 +41,6 @@ public:
 
     //процедуры записи
     int write(const void *data, int size);
-
 
 private:
 

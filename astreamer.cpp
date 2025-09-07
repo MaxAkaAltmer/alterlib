@@ -1,5 +1,6 @@
 ﻿#include "astreamer.h"
 #include <alterlib/afile.h>
+#include <memory.h>
 
 using namespace alt;
 
@@ -28,15 +29,13 @@ streamer::~streamer()
 void streamer::userInitMode(int mode)
 {
     if(mode==queryMode)return;
-    if(queryMode==MODE_WRITE)
-    {
-        while(ring_write.Size())alt::sleep(1);
-    }
+
     queryMode=MODE_SLEEP;
     while(queryMode!=currentMode)alt::sleep(1);
     ring_read.Free();
     queryMode=mode;
-    if(mode==MODE_READ || mode==MODE_WRITE)
+
+    if(mode==MODE_READ)
     {
         while(queryMode!=currentMode)alt::sleep(1);
     }
@@ -158,7 +157,6 @@ int streamer::run(void *user)
                 hand.seek(hand.size());
             }
             read_end = false;
-            ring_write.Free();
             currentMode=queryMode;
         }
 

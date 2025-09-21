@@ -78,6 +78,25 @@ string byteArray::toCPPArray(string name, bool up_case)
     return rv+"\r\n};\r\n";
 }
 
+string byteArray::toHex(const void *data, uint size, bool up_case, int sep, string insert)
+{
+    string rv;
+    if(!data || !size)return rv;
+
+    rv.reserve(size*2+(sep?(size/sep)*insert.size():0));
+    for(uint i=0;i<size;i++)
+    {
+        uint8 val=((const uint8*)data)[i];
+        if(sep && !(i%sep) && i)
+        {
+            rv+=insert;
+        }
+        rv.append(_adata_make_half_hex(val>>4,up_case));
+        rv.append(_adata_make_half_hex(val&0xf,up_case));
+    }
+    return rv;
+}
+
 string byteArray::toHex(bool up_case, int sep, string insert)
 {
     string rv;

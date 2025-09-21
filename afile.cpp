@@ -1013,7 +1013,7 @@ bool dirIsWriteble(string path)
     return false;
 }
 
-array<string> dirEntryList(const string &path, alt::set<string> extFilter, int type)
+array<string> alt::dirEntryList(const string &path, alt::set<string> extFilter, int type)
 {
     array<string> rv;
 #if !defined(linux) && !defined(__APPLE__)
@@ -1285,6 +1285,18 @@ alt::time file::changeTime(string fname)
     if(sizeof(t_stat.st_mtime)==8)
         return alt::time(((uint64)t_stat.st_mtime)*(uint64)1000000);
     return alt::time(((uint32)t_stat.st_mtime)*(uint64)1000000);
+}
+
+int64 file::size(string fname)
+{
+    struct stat t_stat;
+#if !defined(linux) && !defined(__APPLE__)
+    array<wchar_t> wname=fname.toUnicode();
+    wstat(wname(), &t_stat);
+#else
+    stat(fname(), &t_stat);
+#endif
+    return t_stat.st_size;
 }
 
 bool file::replicate(string src, string dst)

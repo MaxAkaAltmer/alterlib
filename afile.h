@@ -234,6 +234,7 @@ namespace alt {
         bool isSequential() const override;
 
         static alt::time changeTime(string fname);
+        static int64 size(string fname);
 
         static bool exists(string fname);
         static bool remove(string fname);

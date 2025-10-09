@@ -27,7 +27,6 @@ SOFTWARE.
 #ifndef ATYPES_H
 #define ATYPES_H
 
-#include <concepts>
 #include <atomic>
 
 //////////////////////////////////////////////////////////////////

@@ -26,6 +26,7 @@ SOFTWARE.
 
 #include "athread.h"
 #include <stdexcept>
+#include <iostream>
 
 using namespace alt;
 
@@ -38,13 +39,12 @@ sharedArrays::sharedArrays()
     {
         throw std::runtime_error("sharedArrays can't be created more then once!");
     }
-    root_thread_id = threadId();
     attach();
 }
 
 sharedArrays::~sharedArrays()
 {
-    initialized--;
+    dettach();
     while(initialized)
     {
         sleep(10);
@@ -106,8 +106,7 @@ void sharedArrays::dettach()
     if(!ptr)
         return;
 
-    if(root_thread_id != threadId())
-        initialized--;
+    initialized--;
 
     mutex.lock();
     to_remove.append(ptr);

@@ -244,7 +244,6 @@ namespace alt {
         semaphore mutex;
         alt::array<alt::array<sharedArrayInternal*>*> arrays;
         alt::array<alt::array<sharedArrayInternal*>*> to_remove;
-        long long root_thread_id;
 
     };
 

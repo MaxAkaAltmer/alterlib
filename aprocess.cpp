@@ -71,7 +71,7 @@ struct sharedInternal
 
 static void* openSharedMemory(const string& name, uint8*& buffer, uintz size)
 {
-    HANDLE hMapFile = CreateFileMapping(
+    HANDLE hMapFile = CreateFileMappingA(
         INVALID_HANDLE_VALUE,    // Используем память, а не файл
         NULL,                    // Защита по умолчанию
         PAGE_READWRITE,          // Чтение/запись

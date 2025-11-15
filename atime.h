@@ -77,6 +77,9 @@ namespace alt {
 
         string toString(bool full = true);
 
+        static string intervalString(uint64 start, uint64 end);
+        static string intervalString(uint64 delta);
+
     private:
 
         uint64 stamp;

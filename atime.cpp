@@ -99,6 +99,19 @@ time::time( int year,
     stamp = t*1000000+usec;
 }
 
+string time::intervalString(uint64 delta)
+{
+    return  string::fromIntFormat((delta/3600000000)%60,2)+":"+
+            string::fromIntFormat((delta/60000000)%60,2)+":"+
+            string::fromIntFormat((delta/1000000)%60,2)+"."+
+            string::fromIntFormat((delta/1000)%1000,3);
+}
+
+string time::intervalString(uint64 start, uint64 end)
+{
+    return intervalString(end-start);
+}
+
 string time::toString(bool full)
 {
     time_t t=stamp/1000000;

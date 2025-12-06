@@ -79,11 +79,11 @@ public:
         resize(w,h,format,filter);
     }
 #ifdef QT_WIDGETS_LIB
-    AGLTexture(const QImage &img)
+    GLTexture(const QImage &img)
         : alt::texture()
     {
         resize(img.width(),img.height(),img.depth()<<16);
-        update(0,0,img.bits(),img.height(),img.depth()<<16);
+        update(0,0,img.bits(),img.width(),img.height(),img.depth()<<16);
     }
 #endif
 

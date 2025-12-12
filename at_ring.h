@@ -73,7 +73,7 @@ namespace alt {
 
             int Limit(){return len-1;}
 
-            void forcedPush(const T &val) //не для многопоточного применения!
+            void forcedPush_Unsafe(const T &val) //не для многопоточного применения!
             {
                 if(!Allow())Get();
                 buff[up]=val;
@@ -116,12 +116,14 @@ namespace alt {
             //указатель на начало данных
             T* startPoint()
             {
+                std::atomic_thread_fence(std::memory_order_acquire);
                 return &buff[down];
             }
 
             //указатель на место записи
             T* afterPoint()
             {
+                std::atomic_thread_fence(std::memory_order_acquire);
                 return &buff[up];
             }
 
@@ -151,15 +153,18 @@ namespace alt {
                 {
                     ind = Size() + ind;
                 }
+                std::atomic_thread_fence(std::memory_order_acquire);
                 return buff[(down+ind)%len];
             }
             void Free(int size=-1)
             {
+                std::atomic_thread_fence(std::memory_order_release);
                 if(size<0)down=up;
                 else down=(down+size)%len;
             }
             void Added(int size)
             {
+                std::atomic_thread_fence(std::memory_order_release);
                 up=(up+size)%len;
             }
     };

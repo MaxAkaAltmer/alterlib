@@ -27,6 +27,8 @@ SOFTWARE.
 #ifndef AT_RING_H
 #define AT_RING_H
 
+#include <atomic>
+
 namespace alt {
 
     template <class T>
@@ -63,6 +65,7 @@ namespace alt {
                 for(int i=0;i<size;i++)
                 {
                     buff[up]=block[i];
+                    std::atomic_thread_fence(std::memory_order_release);
                     up=(up+1)%len;
                 }
                 return true;
@@ -81,6 +84,8 @@ namespace alt {
             {
                 if(!Allow())return false;
                 buff[up]=val;
+
+                std::atomic_thread_fence(std::memory_order_release);
                 up=(up+1)%len;
                 return true;
             }
@@ -123,8 +128,12 @@ namespace alt {
             T Get()
             {
              T rv;
-                rv=buff[down];
                 if(!Size())return rv;
+
+                std::atomic_thread_fence(std::memory_order_acquire);
+                rv=buff[down];
+
+                std::atomic_thread_fence(std::memory_order_release);
                 down=(down+1)%len;
                 return rv;
             }

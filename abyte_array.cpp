@@ -78,7 +78,7 @@ string byteArray::toCPPArray(string name, bool up_case)
     return rv+"\r\n};\r\n";
 }
 
-string byteArray::toHex(const void *data, uint size, bool up_case, int sep, string insert)
+string byteArray::binToHex(const void *data, uint size, bool up_case, int sep, string insert)
 {
     string rv;
     if(!data || !size)return rv;

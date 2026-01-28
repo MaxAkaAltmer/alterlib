@@ -169,7 +169,7 @@ namespace alt {
             return *this;
         }
 
-        static string toHex(const void *data, uint size, bool up_case=false, int sep=0, string insert = " ");
+        static string binToHex(const void *data, uint size, bool up_case=false, int sep=0, string insert = " ");
         string toHex(bool up_case=false, int sep=0, string insert = " ");
         string toCPPArray(string name, bool up_case=false);
         string toAnsiView(const char replacer = '.');

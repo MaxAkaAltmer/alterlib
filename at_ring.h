@@ -30,6 +30,45 @@ SOFTWARE.
 #include <atomic>
 
 namespace alt {
+	
+	template <class T>
+	class dualBuffer
+	{
+	public:
+
+		dualBuffer() = default;
+
+		void writeDone()
+		{
+			std::atomic_thread_fence(std::memory_order_release);
+			if (wr_index == rd_index)
+			{
+				wr_index = wr_index ^ 1;
+			}
+		}
+		bool canRead() const
+		{
+			return rd_index != wr_index;
+		}
+		void readDone()
+		{
+			std::atomic_thread_fence(std::memory_order_release);
+			rd_index = rd_index ^ 1;
+		}
+
+		T& readBuffer()
+		{
+			std::atomic_thread_fence(std::memory_order_acquire);
+			return buffers[rd_index];
+		}
+		T& writeBuffer() { return buffers[wr_index]; }
+
+	private:
+
+		alignas(64) volatile int wr_index = 0;
+		alignas(64) volatile int rd_index = 0;
+		T buffers[2];
+	};
 
     template <class T>
     class ring

@@ -2,7 +2,7 @@
 
 This is part of Alterlib - the free code collection under the MIT License
 ------------------------------------------------------------------------------
-Copyright (C) 2006-2023 Maxim L. Grishin  (altmer@arts-union.ru)
+Copyright (C) 2006-2026 Maxim L. Grishin  (altmer@arts-union.ru)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -28,6 +28,16 @@ SOFTWARE.
 #define AT_RING_H
 
 #include <atomic>
+#include <cstring> //todo: memcopy performance test
+#include <type_traits> 
+
+//Памятка:
+
+//Release — запрещает всплытие операций (снизу вверх) за барьер.
+//          Это Store-Store барьер (на x86 вообще ничего не стоит, на ARM дешево). 
+
+//Acquire — запрещает проваливание операций (сверху вниз) за барьер.
+//          Это Load-Load барьер (на x86 тоже ничего не стоит, на ARM дешево).
 
 namespace alt {
 	
@@ -36,6 +46,54 @@ namespace alt {
 #else
     constexpr std::size_t hardware_destructive_interference_size = 64;
 #endif
+
+	template <class T>
+	class snapshotBuffer
+	{		
+		static_assert(std::is_trivially_copyable<T>::value, "T must be trivially copyable for memcpy snapshot");
+		
+		struct State {
+			alignas(hardware_destructive_interference_size) volatile unsigned int counter = 0;			
+			T buffers[2];
+		};
+
+		alignas(hardware_destructive_interference_size) State shared_state;
+
+	public:
+		
+		void write(const T& val)
+		{
+			unsigned int cnt = shared_state.counter;			
+			int idx = cnt & 1;
+
+			shared_state.buffers[idx] = val;
+			std::atomic_thread_fence(std::memory_order_release);
+			shared_state.counter = cnt + 1;
+		}
+
+		bool read(T& outVal, unsigned int &catch_up_counter)
+		{
+			unsigned int current_cnt = shared_state.counter;
+			std::atomic_thread_fence(std::memory_order_acquire);
+
+			State snapshot;
+			snapshot.counter = current_cnt;
+			std::memcpy(snapshot.buffers, shared_state.buffers, sizeof(T)*2);	
+			std::atomic_thread_fence(std::memory_order_acquire);
+			
+			unsigned int seq_end = shared_state.counter;
+
+			if (seq_end - snapshot.counter > 1 || snapshot.counter == catch_up_counter) {
+				return false;
+			}
+
+			int safe_idx = (snapshot.counter & 1) ^ 1;
+
+			outVal = snapshot.buffers[safe_idx];
+			catch_up_counter = snapshot.counter;
+			return true;
+		}
+	};
 	
 	template <class T>
 	class dualBuffer
@@ -76,12 +134,15 @@ namespace alt {
 		T buffers[2];
 	};
 
+	//todo: full refactoring
     template <class T>
     class ring
     {
      private:
             T *buff;
-            volatile int len,up,down;
+            volatile int len;
+			alignas(hardware_destructive_interference_size) volatile int up;
+			alignas(hardware_destructive_interference_size) volatile int down;
      public:
             ring(){buff=0;len=1;up=0;down=0;}
             ring(int size){buff=new T[size+1];len=size+1;up=0;down=0;}

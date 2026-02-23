@@ -31,13 +31,19 @@ SOFTWARE.
 
 namespace alt {
 	
+#ifdef __cpp_lib_hardware_interference_size
+    using std::hardware_destructive_interference_size;
+#else
+    constexpr std::size_t hardware_destructive_interference_size = 64;
+#endif
+	
 	template <class T>
 	class dualBuffer
 	{
 	public:
 
 		dualBuffer() = default;
-
+		
 		void writeDone()
 		{
 			std::atomic_thread_fence(std::memory_order_release);
@@ -53,7 +59,7 @@ namespace alt {
 		void readDone()
 		{
 			std::atomic_thread_fence(std::memory_order_release);
-			rd_index = rd_index ^ 1;
+			rd_index = wr_index;
 		}
 
 		T& readBuffer()
@@ -65,8 +71,8 @@ namespace alt {
 
 	private:
 
-		alignas(64) volatile int wr_index = 0;
-		alignas(64) volatile int rd_index = 0;
+		alignas(hardware_destructive_interference_size) volatile int wr_index = 0;
+		alignas(hardware_destructive_interference_size) volatile int rd_index = 0;
 		T buffers[2];
 	};
 

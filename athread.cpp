@@ -385,7 +385,7 @@ bool semaphore::trylock()
 #else
 
 #include <windows.h>
-#include <WinBase.h>
+#include <winbase.h>
 
 #ifndef _DEF_WINBOOL_
 #define _DEF_WINBOOL_
@@ -691,3 +691,4 @@ bool semaphore::trylock()
 }
 
 #endif
+

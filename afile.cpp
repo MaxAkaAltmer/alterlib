@@ -113,7 +113,7 @@ static void print_full_toc(const byteArray& buffer)
 
 #include <initguid.h>
 #include <devguid.h>
-#include <SetupAPI.h>
+#include <setupapi.h>
 #include <string>
 #include <iostream>
 #include <iomanip>
@@ -1310,3 +1310,4 @@ bool file::replicate(string src, string dst)
     if(hdst.copy(&hsrc,total)!=total)return false;
     return true;
 }
+

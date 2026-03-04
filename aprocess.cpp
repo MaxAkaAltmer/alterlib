@@ -18,31 +18,51 @@ long long alt::processId()
 struct sharedInternal
 {
     int shm_fd;
+    bool host;
+    string name;
 };
 
 static void* openSharedMemory(const string& name, uint8*& buffer, uintz size)
 {
-    int shm_fd = shm_open(name(), O_CREAT | O_RDWR, 0666);
-    if (shm_fd == -1) {
-        return nullptr;
-    }
 
-    // Установим размер разделяемой памяти
-    if (ftruncate(shm_fd, size) == -1) {
-        close(shm_fd);
-        return nullptr;
+    bool host = false;
+
+    int shm_fd = shm_open(name(), O_CREAT | O_EXCL | O_RDWR, 0666);
+
+    if (shm_fd != -1)
+    {
+        host = true;
+        if (ftruncate(shm_fd, size) == -1)
+        {
+            close(shm_fd);
+            shm_unlink(name());
+            return nullptr;
+        }
+    }
+    else
+    {
+        shm_fd = shm_open(name(), O_RDWR, 0666);
+        if (shm_fd == -1)
+        {
+            return nullptr;
+        }
     }
 
     // Маппим память в адресное пространство
     uint8* shared_array = (uint8*)mmap(NULL, size,
                              PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-    if (shared_array == MAP_FAILED) {
+    if (shared_array == MAP_FAILED)
+    {
         close(shm_fd);
+        if (host)
+            shm_unlink(name());
         return nullptr;
     }
 
     sharedInternal *hand = new sharedInternal;
     hand->shm_fd = shm_fd;
+    hand->host = host;
+    hand->name = name;
     buffer = shared_array;
 
     return hand;
@@ -53,6 +73,13 @@ static void closeSharedMemory(sharedInternal *hand, void *buffer, uintz size)
     // Очистка ресурсов
     munmap(buffer, size);
     close(hand->shm_fd);
+    if(hand->host)
+        shm_unlink(hand->name());
+}
+
+void processSharedMemory::cleanup(const string& name)
+{
+    shm_unlink(name());
 }
 
 #else
@@ -106,6 +133,11 @@ static void closeSharedMemory(sharedInternal *hand, void *buffer, uintz size)
     UnmapViewOfFile(buffer);
 
     CloseHandle(hand->hMapFile);
+}
+
+void processSharedMemory::cleanup(const string& name)
+{
+    return;
 }
 
 #endif

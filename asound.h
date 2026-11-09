@@ -27,7 +27,7 @@ SOFTWARE.
 #ifndef PLAY_BY_SAMPLE_INTERFACE
 #define PLAY_BY_SAMPLE_INTERFACE
 
-#include <alterlib/atypes.h>
+#include "atypes.h"
 
 /**
  * @file

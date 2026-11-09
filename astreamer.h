@@ -1,12 +1,12 @@
 #ifndef ASTREAMER_H
 #define ASTREAMER_H
 
-#include <alterlib/atypes.h>
-#include <alterlib/at_array.h>
-#include <alterlib/at_ring.h>
-#include <alterlib/athread.h>
-#include <alterlib/astring.h>
-#include <alterlib/afile.h>
+#include "atypes.h"
+#include "at_array.h"
+#include "at_ring.h"
+#include "athread.h"
+#include "astring.h"
+#include "afile.h"
 
 namespace alt
 {

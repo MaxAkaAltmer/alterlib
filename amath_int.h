@@ -229,42 +229,96 @@ namespace imath {
     {
         return uint16((x>>8) | (x<<8));
     }
-
     __inline int16 bswap16(int16 x)
     {
         return int16(uint16((uint16(x)>>8) | (uint16(x)<<8)));
     }
-
-
     __inline uint32 bswap32by16(uint32 x)
     {
         return (x>>16) | (x<<16);
     }
-
     __inline uint64 bswap64by16(uint64 x)
     {
         return (x>>48) | ((x>>16)&0xffff0000) | ((x&0xffff0000)<<16) | (x<<48);
     }
-
     __inline uint32 bswap32(uint32 x)
     {
         return (x>>24) | ((x>>8)&0x0000FF00L) | ((x&0x0000FF00L)<<8) | (x<<24);
     }
-
     __inline int32 bswap32(int32 x)
     {
         return int32(bswap32(uint32(x)));
     }
-
     __inline uint64 bswap64(uint64 x)
     {
         return (x>>56) | ((x>>40)&0x0000FF00) | ((x>>24)&0x00FF0000) | ((x>>8)&0xFF000000) |
                 ((x&0xFF000000)<<8) | ((x&0x00FF0000)<<24) | ((x&0x0000FF00)<<40) | (x<<56);
     }
-
     __inline int64 bswap64(int64 x)
     {
         return int64(bswap64(uint64(x)));
+    }
+	
+	// ==========================================================================
+    // Универсальный байтовый swap с addr_xor
+    //
+    // Базовые bswap16/bswap32/bswap64 объявлены в amath_int.h (он же даёт
+    // bswap32by16/bswap64by16 — обмен слов без разворота внутри слов).
+    // Механизм — ксоризация адреса, тип T не имеет значения:
+    //     out[i] = in[i ^ (addr_xor & (sizeof(T)-1))]
+    // где in/out — указатели на объект T, приведённые к unsigned char*.
+    // Биты адреса старше sizeof(T) у самого объекта не бывает, поэтому лишние
+    // биты addr_xor отбрасываются маской: uint16 с addr_xor=3 даёт обмен байтов.
+    //
+    // addr_xor = 3 — «схемотехническая аксиома» для 32-битной шины
+    //   sizeof(T) == 2, addr_xor == 1 -> a0         -> bswap16
+    //   sizeof(T) == 4, addr_xor == 3 -> a1^a0      -> bswap32
+    //   sizeof(T) == 8, addr_xor == 7 -> a2^a1^a0   -> bswap64
+    //   sizeof(T) == 8, addr_xor == 3 -> a1^a0      -> разворот внутри каждого
+    //                                   32-битного слова + обмен слов местами
+    //                                   (так 64-битное значение читается с
+    //                                   32-битной шины)
+    //
+    // Требование к типу одно: sizeof(T) — степень двойки (static_assert ниже),
+    // иначе перестановка не переводит [0, sizeof(T)) в себя.
+    //
+    // Операция — инволюция (swap_bytes<swap_bytes(x)> == x), поэтому ctor,
+    // присваивание и чтение endian используют один и тот же обмен.
+    //
+    // Быстрые пути дают ровно тот же результат, что и общий цикл, но /O2
+    // помогает не всегда: сворачивание в ror/bswap видно в листинге
+    // tmp/asm_probe.asm (3 инструкции), а побайтовый цикл остаётся побайтовым
+    // (23 инструкции для swap_bytes<uint64,3>).
+    // ==========================================================================
+
+    template <typename T, uint8 addr_xor>
+    __inline T swap_bytes(T x)
+    {
+        static_assert(sizeof(T) >= 1 && (sizeof(T) & (sizeof(T) - 1)) == 0,
+            "swap_bytes: sizeof(T) must be a power of two (XOR of an address keeps it in range)");
+
+        // Быстрые пути — только для целых типов: bswap16/32/64 перегружены для
+        // uint16/int16, uint32/int32 и uint64/int64, так что с тем же float такой
+        // вызов был бы неоднозначным. Несовпадение addr_xor с младшими битами
+        // адреса (и нецелые T) отдают общий побайтовый цикл ниже.
+        if constexpr (std::is_integral_v<T> && sizeof(T) == 2 && (addr_xor & 1) != 0)
+            return reintrpret<T>(bswap16(reintrpret<uint16>(x)));
+        else if constexpr (std::is_integral_v<T> && sizeof(T) == 4 && (addr_xor & 3) == 3)
+            return reintrpret<T>(bswap32(reintrpret<uint32>(x)));
+        else if constexpr (std::is_integral_v<T> && sizeof(T) == 8 && (addr_xor & 7) == 7)
+            return reintrpret<T>(bswap64(reintrpret<uint64>(x)));
+        else
+        {
+            static_assert(sizeof(unsigned char) == 1, "unexpected char size");
+
+            const unsigned char *in = reinterpret_cast<const unsigned char*>(&x);
+
+            T result = T();
+            unsigned char *res = reinterpret_cast<unsigned char*>(&result);
+            for (size_t i = 0; i < sizeof(T); ++i)
+                res[i] = in[i ^ (addr_xor & (sizeof(T)-1))];
+            return result;
+        }
     }
 
     __inline uint32 rotr32(uint32 val, uint32 shift)

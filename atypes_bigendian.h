@@ -30,65 +30,20 @@ SOFTWARE.
 #include "atypes.h"
 #include "amath_int.h"
 
+#include <type_traits>
+
 namespace alt {
-namespace imath {
-
-    // ==========================================================================
-    // Базовые свапы (используются внутри swap_bytes)
-    // ==========================================================================
-
-    __inline uint16 bswap16(uint16 x) { return uint16((x>>8) | (x<<8)); }
-    __inline int16  bswap16(int16  x) { return int16(bswap16(uint16(x))); }
-    __inline uint32 bswap32(uint32 x)
-    { return (x>>24) | ((x>>8)&0x0000FF00L) | ((x&0x0000FF00L)<<8) | (x<<24); }
-    __inline int32  bswap32(int32  x) { return int32(bswap32(uint32(x))); }
-    __inline uint64 bswap64(uint64 x)
-    {
-        return (x>>56) | ((x>>40)&0x0000FF00) | ((x>>24)&0x00FF0000) | ((x>>8)&0xFF000000) |
-                ((x&0xFF000000)<<8) | ((x&0x00FF0000)<<24) | ((x&0x0000FF00)<<40) | (x<<56);
-    }
-    __inline int64  bswap64(int64  x) { return int64(bswap64(uint64(x))); }
-
-    // ==========================================================================
-    // Универсальный байтовый swap с addr_xor
-    //
-    // addr_xor = 3  (схемотехническая аксиома!)
-    // addr_xor & (sizeof(T)-1) — маскировка под размер типа
-    //
-    // Каждый байт с позицией i перемещается на позицию (i ^ addr_xor):
-    //   shift = 8 * ((i ^ ax) - i), где ax = addr_xor & (sizeof(T)-1)
-    //   результат[i] = (x >> shift) & 0xFF
-    // ==========================================================================
-
-    template <typename T, uint8 addr_xor>
-    __inline T swap_bytes(T x)
-    {
-        if constexpr (sizeof(T) == 2 && addr_xor == 1)
-            return bswap16(x);
-        else if constexpr (sizeof(T) == 4 && addr_xor == 3)
-            return bswap32(x);
-        else if constexpr (sizeof(T) == 8 && addr_xor == 7)
-            return bswap64(x);
-        else
-        {
-            T result = T(0);
-            uint8 ax = addr_xor & (sizeof(T) - 1);
-            for (int i = 0; i < int(sizeof(T)); ++i)
-            {
-                int shift = 8 * ((i ^ ax) - i);
-                if (shift >= 0)
-                    result |= (T(x) >> shift) & T(0xFF);
-                else
-                    result |= (T(x) << (-shift)) & T(0xFF);
-            }
-            return result;
-        }
-    }
 
     // ==========================================================================
     // endian<base_type, addr_xor> — generic big-endian wrapper
     //
-    // addr_xor = 3  (схемотехническая аксиома!)
+    // Хранит значение в "big-endian" виде (swap_bytes — инволюция, поэтому
+    // конструктор, деструкция и operator= используют один и тот же обмен).
+    //
+    // addr_xor по умолчанию = sizeof(base_type)-1 -> полный разворот байтов,
+    // то есть хранение big-endian в точности как bswap16/bswap32/bswap64.
+    // Меньший addr_xor (например, 3 для 64-битного типа) моделирует чтение
+    // значения с шины меньшей разрядности.
     // ==========================================================================
 
     template <typename base_type, uint8 addr_xor = sizeof(base_type) - 1>
@@ -135,11 +90,22 @@ namespace imath {
         endian& operator*=(base_type val)  { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) * val); return *this; }
         endian& operator/=(base_type val)  { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) / val); return *this; }
         endian& operator%=(base_type val)  { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) % val); return *this; }
-        endian& operator&=(base_type val)  { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) & val); return *this; }
-        endian& operator|=(base_type val)  { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) | val); return *this; }
-        endian& operator^=(base_type val)  { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) ^ val); return *this; }
+        // Битовые операции не зависят от порядка байтов: swap_bytes — это
+        // перестановка байтов, поэтому
+        //     swap(a OP b) == swap(a) OP swap(b),   swap(~a) == ~swap(a)
+        // То есть менять местами байты нужно только внешнему операнду, а если
+        // оба уже в swap-представлении — обмен не нужен вовсе. Арифметика и
+        // сдвиги так не сокращаются: перенос идёт через границы байтов.
+        endian& operator&=(base_type val)  { data_ &= swap_bytes<base_type, addr_xor>(val); return *this; }
+        endian& operator|=(base_type val)  { data_ |= swap_bytes<base_type, addr_xor>(val); return *this; }
+        endian& operator^=(base_type val)  { data_ ^= swap_bytes<base_type, addr_xor>(val); return *this; }
         endian& operator<<=(base_type val) { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) << val); return *this; }
         endian& operator>>=(base_type val) { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) >> val); return *this; }
+
+        // то же над swap-представлением обоих операндов — без единого обмена
+        endian& operator&=(const endian &o) { data_ &= o.data_; return *this; }
+        endian& operator|=(const endian &o) { data_ |= o.data_; return *this; }
+        endian& operator^=(const endian &o) { data_ ^= o.data_; return *this; }
 
         // prefix increment / decrement
         endian& operator++() { return *this += base_type(1); }
@@ -155,9 +121,10 @@ namespace imath {
         friend endian operator-(const endian &x)
         { return endian(-static_cast<base_type>(x)); }
 
-        // bitwise NOT
+        // bitwise NOT — перестановка байтов и ~ коммутируют, поэтому меняем
+        // биты прямо в swap-представлении: ни одного обмена
         friend endian operator~(const endian &x)
-        { return endian(~static_cast<base_type>(x)); }
+        { endian r; r.data_ = ~x.data_; return r; }
     };
 
     // ==========================================================================
@@ -237,15 +204,16 @@ namespace imath {
     { return endian<T, X>(a) %= get_value(b); }
 
     // --- bitwise (endian vs endian) ---
+    // оба операнда уже лежат в swap-представлении -> обменов нет вообще
     template <typename T, uint8 X>
     __inline endian<T, X> operator&(const endian<T, X> &a, const endian<T, X> &b)
-    { return endian<T, X>(a) &= get_value(b); }
+    { return endian<T, X>(a) &= b; }
     template <typename T, uint8 X>
     __inline endian<T, X> operator|(const endian<T, X> &a, const endian<T, X> &b)
-    { return endian<T, X>(a) |= get_value(b); }
+    { return endian<T, X>(a) |= b; }
     template <typename T, uint8 X>
     __inline endian<T, X> operator^(const endian<T, X> &a, const endian<T, X> &b)
-    { return endian<T, X>(a) ^= get_value(b); }
+    { return endian<T, X>(a) ^= b; }
 
     // --- shift (endian vs endian) ---
     template <typename T, uint8 X>
@@ -275,23 +243,26 @@ namespace imath {
     __inline bool operator>=(const endian<T, X> &a, const endian<T, X> &b)
     { return get_value(a) >= get_value(b); }
 
-} // namespace imath
 } // namespace alt
 
 using alt::imath::endian;
 
 // ==========================================================================
 // Concrete type aliases
+//
+// Пока только 16- и 32-битные: addr_xor = sizeof-1, то есть полный разворот
+// байтов — значение в памяти лежит ровно в big-endian порядке (== bswap16/
+// bswap32 на little-endian хосте). Для 64 бит такой же alias пишется явно как
+// endian<uint64, 7>; endian<uint64, 3> — это значение, приехавшее с 32-битной
+// шины (разворот внутри dword + обмен dword), а не big-endian.
 // ==========================================================================
 
 // unsigned big-endian types
-typedef endian<uint16, 3> uint16b;
+typedef endian<uint16, 1> uint16b;
 typedef endian<uint32, 3> uint32b;
-typedef endian<uint64, 3> uint64b;
 
 // signed big-endian types
-typedef endian<int16, 3>  int16b;
+typedef endian<int16, 1>  int16b;
 typedef endian<int32, 3>  int32b;
-typedef endian<int64, 3>  int64b;
 
 #endif // ATYPES_BIGENDIAN_H

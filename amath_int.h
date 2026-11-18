@@ -28,26 +28,49 @@ SOFTWARE.
 #define INTMATH_UTILS_HEADER_DEFINITION
 
 #include "atypes.h"
+#include <type_traits>
 
 namespace alt {
 namespace imath {
 
-    __inline uint8 rev8(uint8 x)
+    // реверс всех бит в значении (битовое зеркало)
+    // T - беззнаковый целый тип (uint8/uint16/uint32/uint64)
+    template <class T>
+    __inline T rev(T x)
     {
-     x = (((x & 0xaa) >> 1) | ((x << 1) & 0xaa));
-     x = (((x & 0xcc) >> 2) | ((x << 2) & 0xcc));
-     x = ((x >> 4) | (x << 4));
-     return x;
+        static_assert(std::is_unsigned<T>::value, "rev() supports only unsigned integer types");
+
+        // обмен групп по 1 и 2 бита (для любого размера T)
+        x = (((x & T(0xAAAAAAAAAAAAAAAAULL)) >> 1) | ((x << 1) & T(0xAAAAAAAAAAAAAAAAULL)));
+        x = (((x & T(0xCCCCCCCCCCCCCCCCULL)) >> 2) | ((x << 2) & T(0xCCCCCCCCCCCCCCCCULL)));
+
+        // обмен групп по 4 бита (4 < bits/2)
+        if constexpr (sizeof(T) > 1)
+            x = (((x & T(0xF0F0F0F0F0F0F0FULL)) >> 4) | ((x << 4) & T(0xF0F0F0F0F0F0F0FULL)));
+        // обмен групп по 8 бит
+        if constexpr (sizeof(T) > 2)
+            x = (((x & T(0xFF00FF00FF00FF00ULL)) >> 8) | ((x << 8) & T(0xFF00FF00FF00FF00ULL)));
+        // обмен групп по 16 бит
+        if constexpr (sizeof(T) > 4)
+            x = (((x & T(0xFFFF0000FFFF0000ULL)) >> 16) | ((x << 16) & T(0xFFFF0000FFFF0000ULL)));
+
+        // обмен половин (маска не нужна)
+        x = (x >> (sizeof(T) * 4)) | (x << (sizeof(T) * 4));
+        return x;
     }
 
+    // деприкейтед: используйте rev<T>()
+    [[deprecated("use rev<uint8>() instead")]]
+    __inline uint8 rev8(uint8 x)
+    {
+        return rev(x);
+    }
+
+    // деприкейтед: используйте rev<T>()
+    [[deprecated("use rev<uint32>() instead")]]
     __inline uint32 rev32(uint32 x)
     {
-     x = (((x & 0xaaaaaaaa) >> 1) | ((x << 1) & 0xaaaaaaaa));
-     x = (((x & 0xcccccccc) >> 2) | ((x << 2) & 0xcccccccc));
-     x = (((x & 0xf0f0f0f0) >> 4) | ((x << 4) & 0xf0f0f0f0));
-     x = (((x & 0xff00ff00) >> 8) | ((x << 8) & 0xff00ff00));
-     x = ((x >> 16) | (x << 16));
-     return x;
+        return rev(x);
     }
 
     template <class T>
@@ -172,6 +195,12 @@ namespace imath {
         return uint16((x>>8) | (x<<8));
     }
 
+    __inline int16 bswap16(int16 x)
+    {
+        return int16(uint16((uint16(x)>>8) | (uint16(x)<<8)));
+    }
+
+
     __inline uint32 bswap32by16(uint32 x)
     {
         return (x>>16) | (x<<16);
@@ -196,6 +225,11 @@ namespace imath {
     {
         return (x>>56) | ((x>>40)&0x0000FF00) | ((x>>24)&0x00FF0000) | ((x>>8)&0xFF000000) |
                 ((x&0xFF000000)<<8) | ((x&0x00FF0000)<<24) | ((x&0x0000FF00)<<40) | (x<<56);
+    }
+
+    __inline int64 bswap64(int64 x)
+    {
+        return int64(bswap64(uint64(x)));
     }
 
     __inline uint32 rotr32(uint32 val, uint32 shift)

@@ -423,6 +423,36 @@ inline std::string exponent_text(std::ptrdiff_t exp, char marker, bool padded = 
 
 } // namespace xdetail
 
+// The counters a probe reads when nanoseconds alone do not say where the time
+// of a call went: how many steps the series summed, how many roots the
+// logarithm took, and how often the four operations were asked for.  Nothing
+// is reserved or touched unless the build defines AXREAL_MATH_STATS, and the
+// counters are plain rather than atomic - they serve a single threaded probe.
+#ifdef AXREAL_MATH_STATS
+namespace xdetail {
+
+struct math_stats {
+    unsigned long long terms = 0ULL;  // next() calls of every series summed
+    unsigned long long series = 0ULL; // series summed by sum_series
+    unsigned long long roots = 0ULL;  // square roots taken inside log_core
+    unsigned long long add = 0ULL;    // the class operations, every caller
+    unsigned long long mul = 0ULL;
+    unsigned long long div = 0ULL;
+    unsigned long long sqrt = 0ULL;
+};
+
+inline math_stats& stats() {
+    static math_stats value;
+    return value;
+}
+
+} // namespace xdetail
+
+#define AXREAL_STAT(field) (++alt::xdetail::stats().field)
+#else
+#define AXREAL_STAT(field)
+#endif
+
 // ---------------------------------------------------------------------------
 // xreal - floating point with an arbitrarily wide binary mantissa.
 // ---------------------------------------------------------------------------
@@ -1095,6 +1125,7 @@ xreal<Bits> xreal<Bits>::summed(const xreal& a, bool aneg, const xreal& b, bool 
 
 template <unsigned Bits>
 xreal<Bits> xreal<Bits>::add(const xreal& a, const xreal& b, rnd mode) {
+    AXREAL_STAT(add);
     return summed(a, a.neg_, b, b.neg_, mode);
 }
 
@@ -1109,6 +1140,7 @@ xreal<Bits> xreal<Bits>::sub(const xreal& a, const xreal& b, rnd mode) {
 
 template <unsigned Bits>
 xreal<Bits> xreal<Bits>::mul(const xreal& a, const xreal& b, rnd mode) {
+    AXREAL_STAT(mul);
     const bool neg = a.neg_ != b.neg_;
     if (a.inf_ || b.inf_) {
         if (a.is_zero() || b.is_zero())
@@ -1124,6 +1156,7 @@ xreal<Bits> xreal<Bits>::mul(const xreal& a, const xreal& b, rnd mode) {
 
 template <unsigned Bits>
 xreal<Bits> xreal<Bits>::div(const xreal& a, const xreal& b, rnd mode) {
+    AXREAL_STAT(div);
     const bool neg = a.neg_ != b.neg_;
     if (a.inf_) {
         if (b.inf_)
@@ -1160,6 +1193,7 @@ xreal<Bits> xreal<Bits>::div(const xreal& a, const xreal& b, rnd mode) {
 
 template <unsigned Bits>
 xreal<Bits> xreal<Bits>::sqrt(const xreal& a, rnd mode) {
+    AXREAL_STAT(sqrt);
     if (a.inf_) {
         if (a.neg_)
             throw std::domain_error("alt::xreal: square root of a negative infinity");
@@ -1826,17 +1860,82 @@ T series_floor() {
     return T(1).scaled(-exponent_type(T::bits) - 2);
 }
 
+// The three trades the elementary functions make between the length of a
+// series and the multiplications that shorten its argument: how many times the
+// reduced argument of the exponential function is halved before the series and
+// squared back afterwards, how many times the leftover of a quadrant is halved
+// before the two trigonometric series and doubled back, and how many square
+// roots the logarithm may take on its way towards one.  A build may pin any
+// of the three - /DAXREAL_EXP_SUBSCALE=n, /DAXREAL_SIN_SUBSCALE=n and
+// /DAXREAL_LOG_ROOTS=n - and the ladders of build\math_probe.cpp walked every
+// width through exactly those knobs at run time to choose the defaults below.
+// The functions are constexpr, so a call passes the number as a constant; the
+// argument is the width the series run in, the scratch width bits + guard.
+//
+// The walks measured: the minimum of the exponential trade lies anywhere
+// between 30 and 56 halvings from 224 bits upwards, and between 16 and 36 at
+// 160 bits - the curve is so flat across the whole span that one number serves
+// every width, and 40 is never more than a few percent off the winner of any
+// ladder.  The trigonometric pair, whose doubling costs three multiplies
+// rather than one, wants a number of its own per width, 0.75 times the square
+// root: 6 at 160 bits, 36 at 2144.  The logarithm balances a root (a square
+// root) against the terms of the atanh series it spares (a multiply and a
+// division each), and its balance sits at 0.45 times the square root: 6 at 160
+// bits, 16 to 24 at 2144, where the old budget spent its whole 64 roots on
+// every single call.  The error the doubling back accumulates grows with 2^m;
+// at m = 40 it keeps some fifty of the 96 guard bits for the one-ulp promise.
+// The whole-number square root by Newton, because the compilers of this
+// project's world keep the floating sqrt out of constexpr; two lines and the
+// widths here never grow past what it settles in eight steps.
+inline constexpr unsigned integer_sqrt(unsigned v) {
+    unsigned x = v;
+    unsigned y = (x + 1u) / 2u;
+    while (y < x) {
+        x = y;
+        y = (x + v / x) / 2u;
+    }
+    return x;
+}
+
+inline constexpr unsigned exp_subscale(unsigned bits) {
+#ifdef AXREAL_EXP_SUBSCALE
+    (void)bits;
+    return AXREAL_EXP_SUBSCALE;
+#else
+    (void)bits; // the flat minimum of the walks: one number serves every width
+    return 40u;
+#endif
+}
+inline constexpr unsigned sin_subscale(unsigned bits) {
+#ifdef AXREAL_SIN_SUBSCALE
+    return AXREAL_SIN_SUBSCALE;
+#else
+    const unsigned m = (3u * integer_sqrt(bits) + 2u) / 4u; // 0.75 sqrt(bits)
+    return m < 4u ? 4u : (m > 40u ? 40u : m);
+#endif
+}
+inline constexpr unsigned log_roots(unsigned bits) {
+#ifdef AXREAL_LOG_ROOTS
+    return AXREAL_LOG_ROOTS;
+#else
+    const unsigned m = (9u * integer_sqrt(bits) + 10u) / 20u; // 0.45 sqrt(bits)
+    return m < 4u ? 4u : (m > 32u ? 32u : m);
+#endif
+}
+
 // Sums the terms of a series.  `first` is the term of n = 0, `next` turns the
 // term of n - 1 into the one of n, and the loop ends at the first term below the
 // floor.  Since the first term is always counted, a series whose sum is tiny is
 // no problem, and the terms of every series used here shrink from the start.
 template <class T, class F>
 T sum_series(const T& first, F&& next) {
+    AXREAL_STAT(series);
     const T floor = series_floor<T>();
     T total = first;
     T term = first;
     for (unsigned long long n = 1;; ++n) {
         term = next(term, n);
+        AXREAL_STAT(terms);
         if (term.is_zero() || fabs(term) <= floor)
             break;
         total += term;
@@ -1888,12 +1987,33 @@ const T& Napier() {
     return value;
 }
 
-// e^x for a reduced argument, |x| at most ln 2 / 2 above.
+// e^x for a small x: the series itself, one multiply and one division by the
+// step number per term.
 template <class T>
-T e_in_range(const T& r) {
+T e_series(const T& r) {
     return sum_series(T(1), [&r](const T& term, unsigned long long n) {
                return term * r / T(n);
            });
+}
+
+// e^r for a reduced argument, |x| at most ln 2 / 2 above.  Every term the
+// series spares is worth more than the squaring that spared it - a term is a
+// multiply and a division of the working width, a squaring is one multiply -
+// so the argument goes to r / 2^m, the shorter series is summed, and the
+// answer is squared back m times.  The rounding of those squarings grows with
+// 2^m and the truncation of the short series with it, which is what the guard
+// bits of the scratch width are spent on here.
+template <class T>
+T e_in_range_doubled(const T& r, unsigned m) {
+    T e = e_series(r.scaled(-exponent_type(m)));
+    for (unsigned i = 0; i < m; ++i)
+        e = e * e;
+    return e;
+}
+
+template <class T>
+T e_in_range(const T& r) {
+    return e_in_range_doubled<T>(r, exp_subscale(T::bits));
 }
 
 // 2^k for an exact integer k, without ever building the integer itself.
@@ -1918,17 +2038,23 @@ T exp_core(const T& v) {
 
 // ln of a positive, finite value: the exponent times ln 2 plus the logarithm of
 // a mantissa brought near to one by repeated square roots.  Every root halves
-// the logarithm, so the number of roots is the logarithm of the precision, and
-// the series afterwards needs a term or two.
+// the distance to one - and with it the number of terms the atanh series needs
+// afterwards - while costing a square root, so the loop stops at whichever
+// comes first: the mantissa close enough to one that the series needs a term
+// or two, or the budget at which one more root costs more than the terms it
+// spares.  The probe of build\math_probe.cpp measured that balance as
+// log_roots(); the condition 2^-(bits/2) of an older revision was never met at
+// any width, and the loop spent its whole budget of roots every single call.
 template <class T>
-T log_core(const T& v) {
+T log_core_roots(const T& v, unsigned budget) {
     const exponent_type e = v.ilogb();
     T s = v.scaled(-e); // 1 <= s < 2
     unsigned roots = 0;
     const T near_one = T(1).scaled(-exponent_type(T::bits) / 2);
-    while (roots < 64u && fabs(s - T(1)) > near_one) {
+    while (roots < budget && fabs(s - T(1)) > near_one) {
         s = T::sqrt(s);
         ++roots;
+        AXREAL_STAT(roots);
     }
     T result = ln_from_z<T>((s - T(1)) / (s + T(1)));
     if (roots != 0u)
@@ -1936,6 +2062,11 @@ T log_core(const T& v) {
     if (e != 0)
         result = result + T(e) * ln_two<T>();
     return result;
+}
+
+template <class T>
+T log_core(const T& v) {
+    return log_core_roots<T>(v, log_roots(T::bits));
 }
 
 // ln(1 + x) for a x above -1: the atanh series while the value is near one, the
@@ -2475,19 +2606,21 @@ const T& quarter_circle() {
     return value;
 }
 
-// sin and cos of an argument of at most a quarter circle.
+// sin and cos of an argument of at most a quarter circle.  The two factors of
+// a denominator fit into one word, so the term divides by their product: one
+// division instead of two, and one rounding fewer.
 template <class T>
 T sin_series(const T& x) {
     const T xx = x * x;
     return sum_series(x, [&xx](const T& term, unsigned long long n) {
-               return -term * xx / T(2 * n) / T(2 * n + 1);
+               return -term * xx / T((2 * n) * (2 * n + 1));
            });
 }
 template <class T>
 T cos_series(const T& x) {
     const T xx = x * x;
     return sum_series(T(1), [&xx](const T& term, unsigned long long n) {
-               return -term * xx / T(2 * n - 1) / T(2 * n);
+               return -term * xx / T((2 * n - 1) * (2 * n));
            });
 }
 
@@ -2513,18 +2646,34 @@ quadrant_of<T> quarter_count(const T& v) {
 }
 
 // The sine and the cosine of the same value, which need one reduction and the
-// pair of series anyway.
+// pair of series anyway.  The leftover of the reduction is halved m times
+// before the two series and the pair is doubled back m times afterwards by the
+// double angle formulas - the same trade the exponential function makes, and
+// paid for in the same guard bits.  The cosine doubles as 1 - 2 s^2 rather
+// than c^2 - s^2: it is one multiply cheaper, and near a cosine of one the
+// subtraction has no digits to lose.
 template <class T>
-std::pair<T, T> sine_cosine_of(const T& v) {
+std::pair<T, T> sine_cosine_doubled(const T& v, unsigned m) {
     const quadrant_of<T> q = quarter_count(v);
-    const T s = sin_series(q.rest);
-    const T c = cos_series(q.rest);
+    const T rest = q.rest.scaled(-exponent_type(m));
+    T s = sin_series(rest);
+    T c = cos_series(rest);
+    for (unsigned i = 0; i < m; ++i) {
+        const T doubled_s = (s * c).scaled(1);
+        c = T(1) - (s * s).scaled(1);
+        s = doubled_s;
+    }
     switch (q.quadrant) {
         case 1: return {c, -s};  // a quarter circle past that is a swapped pair
         case 2: return {-s, -c};
         case 3: return {-c, s};
         default: return {s, c};
     }
+}
+
+template <class T>
+std::pair<T, T> sine_cosine_of(const T& v) {
+    return sine_cosine_doubled<T>(v, sin_subscale(T::bits));
 }
 
 // atan of an argument of at most one half, by the series whose terms shrink by
@@ -2995,6 +3144,27 @@ T lgamma_stirling(const T& z, T* rest) {
     return (z - T(0.5)) * log_core<T>(z) - z + ln_sqrt_two_pi<T>() + stirling_ln(z, rest);
 }
 
+// ln Gamma(x) - ln Gamma(x - d) of two arguments the series serves.  A caller
+// often wants the difference and not the two values: a binomial coefficient of
+// a large top and a small lower index is the difference of two logarithms of
+// the size of x ln x and an answer of the size of d ln x, so the subtraction
+// itself throws away as many bits as the two differ in magnitude.  With y for
+// x - d the identity
+//     (x - 1/2) ln x - (y - 1/2) ln y - (x - y)
+//         = (x - 1/2) ln(1 + d / y) + d ln y - d
+// keeps every term at the size of the answer: the quotient d / y is what is
+// small, and the logarithm of one plus it costs nothing, while d ln y is the
+// answer itself, found once rather than as a remainder.  The constant and the
+// two halves of the series are subtracted as they stand, being small already;
+// of the two logarithms only ln y survives at full size, and it is taken once.
+template <class T>
+T lgamma_shift_core(const T& x, const T& d) {
+    const T y = x - d;
+    const T head = (x - T(0.5)) * log1p_core<T>(d / y);
+    return head + d * log_core<T>(y) - d +
+           (stirling_ln<T>(x, nullptr) - stirling_ln<T>(y, nullptr));
+}
+
 // Gamma of a whole positive number is a factorial, exact as long as the mantissa
 // holds it; nothing to return when the value is not whole, or when the factorial
 // would need more bits than the mantissa has.
@@ -3049,16 +3219,45 @@ T gamma_positive_core(const T& x) {
 }
 
 // ln|Gamma(z)| of a positive value, in the logarithm all the way, so that neither
-// the answer nor any intermediate value can leave the range of the type.
+// the answer nor any intermediate value can leave the range of the type.  The
+// lift of the function itself,
+//     Gamma(z) = Gamma(z + n) / (z (z + 1) ... (z + n - 1)),
+// is therefore read in the form
+//     ln Gamma(z) = ln Gamma(z + n) - ln(z (z + 1) ... (z + n - 1)).
+// Taking the logarithm of the value instead would build a Gamma of the size of
+// z ln z and ask the type to hold it, which a wide exponent forgives and a narrow
+// one does not: the product alone is what has to fit, and it is of the size of
+// the lift, which follows from the width of the mantissa and not from the range
+// of the exponent.  The lift and the check of the term the series left out are
+// the ones the function above uses.
 template <class T>
 T lgamma_positive_core(const T& x) {
-    if (x < T(1).scaled(40))
-        return log_core<T>(gamma_positive_core(x)); // checks its own truncation
-    T rest(0);
-    const T ln = lgamma_stirling(x, &rest);
-    if (fabs(rest) <= series_floor<T>())
-        return ln; // far above the lift target, as it always is here
-    return log_core<T>(gamma_positive_core(x));
+    // A whole number is a factorial, and the logarithm of that exact value is
+    // what the function owes: the series would blur Gamma(1) and Gamma(2), the
+    // two places it is exactly one.
+    if (const auto facts = whole_factorial<T>(x))
+        return log_core<T>(*facts);
+    const T floor = series_floor<T>();
+    std::ptrdiff_t target = (std::ptrdiff_t(T::bits) + 64) / 9;
+    if (target < 16)
+        target = 16;
+    for (;;) {
+        std::size_t steps = 0;
+        T product(1);
+        T z = x;
+        if (x < T(target)) {
+            if (const auto want = (T(target) - x).ceil().to<std::ptrdiff_t>())
+                steps = std::size_t(*want);
+            for (std::size_t i = 0; i < steps; ++i)
+                product *= x + T(std::ptrdiff_t(i));
+            z = x + T(std::ptrdiff_t(steps));
+        }
+        T rest(0);
+        const T ln = lgamma_stirling(z, &rest);
+        if (fabs(rest) <= floor)
+            return steps == 0 ? ln : ln - log_core<T>(product);
+        target = target * 2 + 8; // lift further and do it over
+    }
 }
 
 // Gamma of a finite value: the exact factorial of a small whole number, the
@@ -3188,8 +3387,9 @@ xreal<Bits> factorial(const xreal<Bits>& v, rnd mode = rnd::nearest_even) {
 
 // The binomial coefficient.  Two whole numbers are computed on the integers,
 // which is exact and what a program means when it writes this; everything else
-// is the quotient of three gamma functions, in the logarithm whenever all three
-// arguments are positive, because that never leaves the range of the type.
+// is a quotient of three gamma functions, always built in the logarithm, since
+// each of the three magnitudes can pass the range of the type while the
+// quotient of them stays inside it.
 //
 // Two whole arguments are handled by the three rules that keep Pascal's triangle
 // whole in every direction: a negative lower index mirrors onto n - k, a row
@@ -3242,13 +3442,39 @@ xreal<Bits> binomial(const xreal<Bits>& n, const xreal<Bits>& k,
     if (pole(a + w(1)))
         throw std::domain_error("alt::binomial: a pole of the gamma function above");
     if (a + w(1) > w(0) && b + w(1) > w(0) && a - b + w(1) > w(0)) {
-        const w ln = xdetail::lgamma_positive_core(a + w(1)) -
-                     xdetail::lgamma_positive_core(b + w(1)) -
-                     xdetail::lgamma_positive_core(a - b + w(1));
+        // The three logarithms are of the size of a ln a while the answer is of
+        // the size of the smaller lower index, which can be forty bits worth
+        // away from it.  The smaller index is therefore kept apart and the
+        // larger one taken off the top by the shift, which leaves a difference
+        // of two values of the size of the answer instead of two of the size of
+        // the top; below the reach of the series the shift has nothing to say,
+        // and there the plain difference loses only guard bits.
+        const w smaller = b < a - b ? b : a - b;
+        const w stir = w(1).scaled(40);
+        w ln(0);
+        if (a + w(1) >= stir && a - smaller + w(1) >= stir)
+            ln = xdetail::lgamma_shift_core(a + w(1), smaller) -
+                 xdetail::lgamma_positive_core(smaller + w(1));
+        else
+            ln = xdetail::lgamma_positive_core(a + w(1)) -
+                 xdetail::lgamma_positive_core(b + w(1)) -
+                 xdetail::lgamma_positive_core(a - b + w(1));
         return xreal<Bits>(xdetail::exp_core(ln), mode);
     }
-    const w down = xdetail::gamma_core(b + w(1)) * xdetail::gamma_core(a - b + w(1));
-    return xreal<Bits>(xdetail::gamma_core(a + w(1)) / down, mode);
+    // Somewhere below zero, so the sign of the quotient matters and the three
+    // magnitudes are no longer bounded by it: each of them alone can overflow
+    // the type while the answer is small.  The logarithm of a magnitude is
+    // finite everywhere but at a pole, which the checks above ruled out, so the
+    // answer is built from the difference of the three logarithms and the
+    // product of the three signs.
+    const int sign = alt::gamma_sign(a + w(1)) * alt::gamma_sign(b + w(1)) *
+                     alt::gamma_sign(a - b + w(1));
+    const w ln = alt::lgamma(a + w(1)) - alt::lgamma(b + w(1)) -
+                 alt::lgamma(a - b + w(1));
+    w value = xdetail::exp_core(ln);
+    if (sign < 0)
+        value = -value;
+    return xreal<Bits>(value, mode);
 }
 
 #if defined(AXREAL_ENABLE_FORMAT)
@@ -3419,8 +3645,15 @@ struct hash<alt::xreal<Bits>> {
         // Equal values hash equal, and the two signed zeros are equal, so zero
         // gets a value of its own.  Everything else is already in the single
         // normal form the class keeps, which makes the rest unique by itself.
-        if (v.is_zero())
-            return std::size_t(0x9e3779b97f4a7c15ull);
+        if (v.is_zero()) {
+            // The golden ratio constant, and on a host with a 32 bit size_t the
+            // two halves of it mixed into one, so that no constant has to be
+            // squeezed into the type by dropping the bits it cannot hold.
+            if constexpr (sizeof(std::size_t) >= 8)
+                return std::size_t(0x9e3779b97f4a7c15ull);
+            else
+                return std::size_t(0x9e3779b9u ^ 0x7f4a7c15u);
+        }
         std::uint64_t seed = v.is_infinity() ? 0xff51afd7ed558ccdull
                                              : std::uint64_t(v.exponent()) * 0xc4ceb9fe1a85ec53ull;
         if (v.signbit())

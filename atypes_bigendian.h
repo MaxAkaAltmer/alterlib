@@ -30,284 +30,268 @@ SOFTWARE.
 #include "atypes.h"
 #include "amath_int.h"
 
-class uint32b
-{
-private:
-        uint32 data;
-public:
-        uint32b()
+namespace alt {
+namespace imath {
+
+    // ==========================================================================
+    // Базовые свапы (используются внутри swap_bytes)
+    // ==========================================================================
+
+    __inline uint16 bswap16(uint16 x) { return uint16((x>>8) | (x<<8)); }
+    __inline int16  bswap16(int16  x) { return int16(bswap16(uint16(x))); }
+    __inline uint32 bswap32(uint32 x)
+    { return (x>>24) | ((x>>8)&0x0000FF00L) | ((x&0x0000FF00L)<<8) | (x<<24); }
+    __inline int32  bswap32(int32  x) { return int32(bswap32(uint32(x))); }
+    __inline uint64 bswap64(uint64 x)
+    {
+        return (x>>56) | ((x>>40)&0x0000FF00) | ((x>>24)&0x00FF0000) | ((x>>8)&0xFF000000) |
+                ((x&0xFF000000)<<8) | ((x&0x00FF0000)<<24) | ((x&0x0000FF00)<<40) | (x<<56);
+    }
+    __inline int64  bswap64(int64  x) { return int64(bswap64(uint64(x))); }
+
+    // ==========================================================================
+    // Универсальный байтовый swap с addr_xor
+    //
+    // addr_xor = 3  (схемотехническая аксиома!)
+    // addr_xor & (sizeof(T)-1) — маскировка под размер типа
+    //
+    // Каждый байт с позицией i перемещается на позицию (i ^ addr_xor):
+    //   shift = 8 * ((i ^ ax) - i), где ax = addr_xor & (sizeof(T)-1)
+    //   результат[i] = (x >> shift) & 0xFF
+    // ==========================================================================
+
+    template <typename T, uint8 addr_xor>
+    __inline T swap_bytes(T x)
+    {
+        if constexpr (sizeof(T) == 2 && addr_xor == 1)
+            return bswap16(x);
+        else if constexpr (sizeof(T) == 4 && addr_xor == 3)
+            return bswap32(x);
+        else if constexpr (sizeof(T) == 8 && addr_xor == 7)
+            return bswap64(x);
+        else
         {
-          data=0;
+            T result = T(0);
+            uint8 ax = addr_xor & (sizeof(T) - 1);
+            for (int i = 0; i < int(sizeof(T)); ++i)
+            {
+                int shift = 8 * ((i ^ ax) - i);
+                if (shift >= 0)
+                    result |= (T(x) >> shift) & T(0xFF);
+                else
+                    result |= (T(x) << (-shift)) & T(0xFF);
+            }
+            return result;
+        }
+    }
+
+    // ==========================================================================
+    // endian<base_type, addr_xor> — generic big-endian wrapper
+    //
+    // addr_xor = 3  (схемотехническая аксиома!)
+    // ==========================================================================
+
+    template <typename base_type, uint8 addr_xor = sizeof(base_type) - 1>
+    class endian
+    {
+    private:
+        base_type data_;
+
+    public:
+        // constructors
+        endian() : data_() {}
+
+        endian(const endian &o) : data_(o.data_) {}
+
+        endian(base_type val) : data_(swap_bytes<base_type, addr_xor>(val)) {}
+
+        // conversion
+        explicit operator base_type() const
+        {
+            return swap_bytes<base_type, addr_xor>(data_);
         }
 
-        uint32b(const uint32b &num)
+        explicit operator bool() const
         {
-           data=num.data;
+            return data_ != base_type(0);
         }
 
-        uint32b(const uint32 &num)
+        // assignment
+        endian& operator=(const endian &o)
         {
-           data=alt::imath::bswap32(num);
+            data_ = o.data_;
+            return *this;
         }
 
-        uint32b& operator=(const uint32 &x)
+        endian& operator=(base_type val)
         {
-               data=alt::imath::bswap32(x);
-               return *this;
+            data_ = swap_bytes<base_type, addr_xor>(val);
+            return *this;
         }
 
-        uint32b& operator+=(const uint32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)+x);
-               return *this;
-        }
+        // compound assignment (with base_type)
+        endian& operator+=(base_type val)  { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) + val); return *this; }
+        endian& operator-=(base_type val)  { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) - val); return *this; }
+        endian& operator*=(base_type val)  { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) * val); return *this; }
+        endian& operator/=(base_type val)  { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) / val); return *this; }
+        endian& operator%=(base_type val)  { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) % val); return *this; }
+        endian& operator&=(base_type val)  { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) & val); return *this; }
+        endian& operator|=(base_type val)  { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) | val); return *this; }
+        endian& operator^=(base_type val)  { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) ^ val); return *this; }
+        endian& operator<<=(base_type val) { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) << val); return *this; }
+        endian& operator>>=(base_type val) { data_ = swap_bytes<base_type, addr_xor>(swap_bytes<base_type, addr_xor>(data_) >> val); return *this; }
 
-        uint32b& operator-=(const uint32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)-x);
-               return *this;
-        }
+        // prefix increment / decrement
+        endian& operator++() { return *this += base_type(1); }
+        endian& operator--() { return *this -= base_type(1); }
 
-        uint32b& operator*=(const uint32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)*x);
-               return *this;
-        }
+        // postfix increment / decrement
+        endian operator++(int)
+        { endian tmp(*this); ++*this; return tmp; }
+        endian operator--(int)
+        { endian tmp(*this); --*this; return tmp; }
 
-        uint32b& operator/=(const uint32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)/x);
-               return *this;
-        }
+        // unary minus (signed types)
+        friend endian operator-(const endian &x)
+        { return endian(-static_cast<base_type>(x)); }
 
-        uint32b& operator<<=(const uint32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)<<x);
-               return *this;
-        }
+        // bitwise NOT
+        friend endian operator~(const endian &x)
+        { return endian(~static_cast<base_type>(x)); }
+    };
 
-        uint32b& operator>>=(const uint32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)>>x);
-               return *this;
-        }
+    // ==========================================================================
+    // Helpers
+    // ==========================================================================
 
-        uint32b& operator%=(const uint32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)%x);
-               return *this;
-        }
+    template <typename T, uint8 X>
+    __inline T get_value(const endian<T, X> &v) { return static_cast<T>(v); }
 
-        uint32b& operator&=(const uint32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)&x);
-               return *this;
-        }
+    // ==========================================================================
+    // Non-member binary operators (uendian + endian share same implementation)
+    // ==========================================================================
 
-        uint32b& operator|=(const uint32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)|x);
-               return *this;
-        }
+    // --- arithmetic (base_type operand) ---
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator+(const endian<T, X> &a, T b)
+    { return endian<T, X>(a) += b; }
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator-(const endian<T, X> &a, T b)
+    { return endian<T, X>(a) -= b; }
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator*(const endian<T, X> &a, T b)
+    { return endian<T, X>(a) *= b; }
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator/(const endian<T, X> &a, T b)
+    { return endian<T, X>(a) /= b; }
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator%(const endian<T, X> &a, T b)
+    { return endian<T, X>(a) %= b; }
 
-        uint32b& operator^=(const uint32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)^x);
-               return *this;
-        }
+    // --- bitwise (base_type operand) ---
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator&(const endian<T, X> &a, T b)
+    { return endian<T, X>(a) &= b; }
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator|(const endian<T, X> &a, T b)
+    { return endian<T, X>(a) |= b; }
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator^(const endian<T, X> &a, T b)
+    { return endian<T, X>(a) ^= b; }
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator<<(const endian<T, X> &a, T b)
+    { return endian<T, X>(a) <<= b; }
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator>>(const endian<T, X> &a, T b)
+    { return endian<T, X>(a) >>= b; }
 
-        operator uint32()
-        {
-               return alt::imath::bswap32(data);
-        }
+    // --- comparison (base_type operand) ---
+    template <typename T, uint8 X>
+    __inline bool operator==(const endian<T, X> &a, T b) { return get_value(a) == b; }
+    template <typename T, uint8 X>
+    __inline bool operator!=(const endian<T, X> &a, T b) { return get_value(a) != b; }
+    template <typename T, uint8 X>
+    __inline bool operator<(const endian<T, X> &a, T b)   { return get_value(a) < b; }
+    template <typename T, uint8 X>
+    __inline bool operator>(const endian<T, X> &a, T b)   { return get_value(a) > b; }
+    template <typename T, uint8 X>
+    __inline bool operator<=(const endian<T, X> &a, T b)  { return get_value(a) <= b; }
+    template <typename T, uint8 X>
+    __inline bool operator>=(const endian<T, X> &a, T b)  { return get_value(a) >= b; }
 
+    // --- arithmetic (endian vs endian) ---
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator+(const endian<T, X> &a, const endian<T, X> &b)
+    { return endian<T, X>(a) += get_value(b); }
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator-(const endian<T, X> &a, const endian<T, X> &b)
+    { return endian<T, X>(a) -= get_value(b); }
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator*(const endian<T, X> &a, const endian<T, X> &b)
+    { return endian<T, X>(a) *= get_value(b); }
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator/(const endian<T, X> &a, const endian<T, X> &b)
+    { return endian<T, X>(a) /= get_value(b); }
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator%(const endian<T, X> &a, const endian<T, X> &b)
+    { return endian<T, X>(a) %= get_value(b); }
 
-};
+    // --- bitwise (endian vs endian) ---
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator&(const endian<T, X> &a, const endian<T, X> &b)
+    { return endian<T, X>(a) &= get_value(b); }
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator|(const endian<T, X> &a, const endian<T, X> &b)
+    { return endian<T, X>(a) |= get_value(b); }
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator^(const endian<T, X> &a, const endian<T, X> &b)
+    { return endian<T, X>(a) ^= get_value(b); }
 
-class int32b
-{
-private:
-        int32 data;
-public:
-        int32b()
-        {
-          data=0;
-        }
+    // --- shift (endian vs endian) ---
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator<<(const endian<T, X> &a, const endian<T, X> &b)
+    { return endian<T, X>(a) <<= static_cast<T>(b); }
+    template <typename T, uint8 X>
+    __inline endian<T, X> operator>>(const endian<T, X> &a, const endian<T, X> &b)
+    { return endian<T, X>(a) >>= static_cast<T>(b); }
 
-        int32b(const int32b &num)
-        {
-           data=num.data;
-        }
+    // --- comparison (endian vs endian) ---
+    template <typename T, uint8 X>
+    __inline bool operator==(const endian<T, X> &a, const endian<T, X> &b)
+    { return get_value(a) == get_value(b); }
+    template <typename T, uint8 X>
+    __inline bool operator!=(const endian<T, X> &a, const endian<T, X> &b)
+    { return get_value(a) != get_value(b); }
+    template <typename T, uint8 X>
+    __inline bool operator<(const endian<T, X> &a, const endian<T, X> &b)
+    { return get_value(a) < get_value(b); }
+    template <typename T, uint8 X>
+    __inline bool operator>(const endian<T, X> &a, const endian<T, X> &b)
+    { return get_value(a) > get_value(b); }
+    template <typename T, uint8 X>
+    __inline bool operator<=(const endian<T, X> &a, const endian<T, X> &b)
+    { return get_value(a) <= get_value(b); }
+    template <typename T, uint8 X>
+    __inline bool operator>=(const endian<T, X> &a, const endian<T, X> &b)
+    { return get_value(a) >= get_value(b); }
 
-        int32b(const int32 &num)
-        {
-           data=alt::imath::bswap32(num);
-        }
+} // namespace imath
+} // namespace alt
 
-        int32b& operator=(const int32 &x)
-        {
-               data=alt::imath::bswap32(x);
-               return *this;
-        }
+using alt::imath::endian;
 
-        int32b& operator+=(const int32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)+x);
-               return *this;
-        }
+// ==========================================================================
+// Concrete type aliases
+// ==========================================================================
 
-        int32b& operator-=(const int32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)-x);
-               return *this;
-        }
+// unsigned big-endian types
+typedef endian<uint16, 3> uint16b;
+typedef endian<uint32, 3> uint32b;
+typedef endian<uint64, 3> uint64b;
 
-        int32b& operator*=(const int32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)*x);
-               return *this;
-        }
+// signed big-endian types
+typedef endian<int16, 3>  int16b;
+typedef endian<int32, 3>  int32b;
+typedef endian<int64, 3>  int64b;
 
-        int32b& operator/=(const int32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)/x);
-               return *this;
-        }
-
-        int32b& operator<<=(const int32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)<<x);
-               return *this;
-        }
-
-        int32b& operator>>=(const int32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)>>x);
-               return *this;
-        }
-
-        int32b& operator%=(const int32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)%x);
-               return *this;
-        }
-
-        int32b& operator&=(const int32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)&x);
-               return *this;
-        }
-
-        int32b& operator|=(const int32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)|x);
-               return *this;
-        }
-
-        int32b& operator^=(const int32 &x)
-        {
-               data=alt::imath::bswap32(alt::imath::bswap32(data)^x);
-               return *this;
-        }
-
-        operator int32()
-        {
-               return alt::imath::bswap32(data);
-        }
-};
-
-class uint16b
-{
-private:
-        uint16 data;
-public:
-        uint16b()
-        {
-          data=0;
-        }
-
-        uint16b(const uint16b &num)
-        {
-           data=num.data;
-        }
-
-        uint16b(const uint16 &num)
-        {
-           data=alt::imath::bswap16(num);
-        }
-
-        uint16b& operator=(const uint16 &x)
-        {
-               data=alt::imath::bswap16(x);
-               return *this;
-        }
-
-        uint16b& operator+=(const uint16 &x)
-        {
-               data=alt::imath::bswap16(alt::imath::bswap16(data)+x);
-               return *this;
-        }
-
-        uint16b& operator-=(const uint16 &x)
-        {
-               data=alt::imath::bswap16(alt::imath::bswap16(data)-x);
-               return *this;
-        }
-
-        uint16b& operator*=(const uint16 &x)
-        {
-               data=alt::imath::bswap16(alt::imath::bswap16(data)*x);
-               return *this;
-        }
-
-        uint16b& operator/=(const uint16 &x)
-        {
-               data=alt::imath::bswap16(alt::imath::bswap16(data)/x);
-               return *this;
-        }
-
-        uint16b& operator<<=(const uint16 &x)
-        {
-               data=alt::imath::bswap16(alt::imath::bswap16(data)<<x);
-               return *this;
-        }
-
-        uint16b& operator>>=(const uint16 &x)
-        {
-               data=alt::imath::bswap16(alt::imath::bswap16(data)>>x);
-               return *this;
-        }
-
-        uint16b& operator%=(const uint16 &x)
-        {
-               data=alt::imath::bswap16(alt::imath::bswap16(data)%x);
-               return *this;
-        }
-
-        uint16b& operator&=(const uint16 &x)
-        {
-               data=alt::imath::bswap16(alt::imath::bswap16(data)&x);
-               return *this;
-        }
-
-        uint16b& operator|=(const uint16 &x)
-        {
-               data=alt::imath::bswap16(alt::imath::bswap16(data)|x);
-               return *this;
-        }
-
-        uint16b& operator^=(const uint16 &x)
-        {
-               data=alt::imath::bswap16(alt::imath::bswap16(data)^x);
-               return *this;
-        }
-
-        operator uint16()
-        {
-               return alt::imath::bswap16(data);
-        }
-
-
-};
-
-#endif
+#endif // ATYPES_BIGENDIAN_H

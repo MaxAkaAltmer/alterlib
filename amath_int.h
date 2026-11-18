@@ -35,29 +35,37 @@ namespace imath {
 
     // реверс всех бит в значении (битовое зеркало)
     // T - беззнаковый целый тип (uint8/uint16/uint32/uint64)
-    template <class T>
-    __inline T rev(T x)
-    {
-        static_assert(std::is_unsigned<T>::value, "rev() supports only unsigned integer types");
+	template <class T>
+	constexpr __inline T rev(T x) noexcept
+	{
+		static_assert(std::is_unsigned_v<T>, "rev() supports only unsigned integer types");
+		static_assert(sizeof(T) <= 8, "rev() supports only 8/16/32/64-bit types");
 
-        // обмен групп по 1 и 2 бита (для любого размера T)
-        x = (((x & T(0xAAAAAAAAAAAAAAAAULL)) >> 1) | ((x << 1) & T(0xAAAAAAAAAAAAAAAAULL)));
-        x = (((x & T(0xCCCCCCCCCCCCCCCCULL)) >> 2) | ((x << 2) & T(0xCCCCCCCCCCCCCCCCULL)));
+		constexpr T maxv = T(~T(0));
+		constexpr T m1 = maxv / 3;     // 0x5555... (младшие биты пар)
+		constexpr T m2 = maxv / 5;     // 0x3333... (младшие пары четверок)
 
-        // обмен групп по 4 бита (4 < bits/2)
-        if constexpr (sizeof(T) > 1)
-            x = (((x & T(0xF0F0F0F0F0F0F0FULL)) >> 4) | ((x << 4) & T(0xF0F0F0F0F0F0F0FULL)));
-        // обмен групп по 8 бит
-        if constexpr (sizeof(T) > 2)
-            x = (((x & T(0xFF00FF00FF00FF00ULL)) >> 8) | ((x << 8) & T(0xFF00FF00FF00FF00ULL)));
-        // обмен групп по 16 бит
-        if constexpr (sizeof(T) > 4)
-            x = (((x & T(0xFFFF0000FFFF0000ULL)) >> 16) | ((x << 16) & T(0xFFFF0000FFFF0000ULL)));
+		// Меняем соседние биты (по 1) и соседние пары (по 2):
+		x = ((x >> 1) & m1) | ((x & m1) << 1);
+		x = ((x >> 2) & m2) | ((x & m2) << 2);
 
-        // обмен половин (маска не нужна)
-        x = (x >> (sizeof(T) * 4)) | (x << (sizeof(T) * 4));
-        return x;
-    }
+		if constexpr (sizeof(T) > 1) {
+			constexpr T m4 = maxv / 17; // 0x0F0F... (ровно под размер T, без опечаток!)
+			x = ((x >> 4) & m4) | ((x & m4) << 4);
+		}
+		if constexpr (sizeof(T) > 2) {
+			constexpr T m8 = maxv / 257; // 0x00FF00FF...
+			x = ((x >> 8) & m8) | ((x & m8) << 8);
+		}
+		if constexpr (sizeof(T) > 4) {
+			constexpr T m16 = maxv / 65537; // 0x0000FFFF0000FFFF
+			x = ((x >> 16) & m16) | ((x & m16) << 16);
+		}
+
+		// Обмен половин (для uint8 это шаг по 4 бита, для uint64 — по 32 бита)
+		constexpr int half_bits = sizeof(T) * 4;
+		return (x >> half_bits) | (x << half_bits);
+	}
 
     // деприкейтед: используйте rev<T>()
     [[deprecated("use rev<uint8>() instead")]]
@@ -181,13 +189,40 @@ namespace imath {
             return bsr64(uint64(val));
     }
 
-    __inline uint32 hbc32(uint32 x)  //подсчет единичных бит
+    // подсчет единичных бит (popcount)
+    // T - беззнаковый целый тип (uint8/uint16/uint32/uint64)
+    template <class T>
+    constexpr __inline T hbc(T x) noexcept
     {
-            x = (x & 0x55555555) + ((x >> 1) & 0x55555555);
-            x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
-            x = (x & 0xffff) + (x >> 16);
-            x = (x & 0xf0f) + ((x >> 4) & 0xf0f);
-            return (x&0xff)+ (x>>8);
+        static_assert(std::is_unsigned_v<T>, "hbc() supports only unsigned integer types");
+        static_assert(sizeof(T) <= 8, "hbc() supports only 8/16/32/64-bit types");
+
+        // ВНИМАНИЕ: constexpr T m = ~T(0)/3 НЕ РАБОТАЕТ для T уже (uint8/uint16):
+        // ~T(0) промоутится к int (-1), а (-1)/3 == 0, и constexpr-значение маски равно 0!
+        // T(~T(0)) сначала возвращает промоутенное значение к родному размеру T
+        constexpr T maxv = T(~T(0));
+        constexpr T m1  = maxv / 3;     // 0x5555...
+        constexpr T m2  = maxv / 5;     // 0x3333...
+        constexpr T m4  = maxv / 17;    // 0x0F0F...
+        constexpr T h01 = maxv / 0xFF;  // 0x0101...
+
+        x -= (x >> 1) & m1;             // вместо двух '&' и '+' — один '&' и '-'
+        x = (x & m2) + ((x >> 2) & m2);
+        x = (x + (x >> 4)) & m4;        // маска один раз ПОСЛЕ сложения!
+
+        if constexpr (sizeof(T) == 1)
+            return x;
+
+        // умножение на 0x0101... суммирует байты в старший байт
+        // (сумма не более 8*sizeof(T) <= 64, переносов нет)
+        return static_cast<T>(x * h01) >> (sizeof(T) * 8 - 8);
+    }
+
+    // деприкейтед: используйте hbc<uint32>()
+    [[deprecated("use hbc<uint32>() instead")]]
+    __inline uint32 hbc32(uint32 x)
+    {
+        return hbc(x);
     }
 
     __inline uint16 bswap16(uint16 x)

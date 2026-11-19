@@ -108,7 +108,7 @@ namespace alt {
         {
             fraction rv;
             rv.den = 1;
-            uint32 max_count = imath::bsrT(T(-1)) - (utils::signed_type<T>()?1:0);
+            uint32 max_count = sizeof(T) * 8 - (utils::signed_type<T>()?1:0);
             while(val != ((F)((T)val)) && max_count>0)
             {
                 rv.den *= 2;
